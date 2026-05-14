@@ -1154,7 +1154,7 @@ function simulateAction(rec) {
 function exportReport() {
     const report = {
         generatedAt: new Date().toISOString(),
-        operator: 'Julius Manuel',
+        operator: 'Julius San Jose',
         role: state.role,
         greenhouse: 'Greenhouse #4',
         sensors: Object.values(state.sensors).map(s => ({

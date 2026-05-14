@@ -5,8 +5,9 @@
 #include <BH1750.h>
 #include <math.h>
 
-static const char *WIFI_SSID = "Password"
-static const char *WIFI_PASS = "password";
+// Use your real 2.4 GHz Wi‑Fi name and password (ESP32 does not join 5 GHz‑only networks).
+static const char *WIFI_SSID = "YOUR_WIFI_SSID";
+static const char *WIFI_PASS = "YOUR_WIFI_PASSWORD";
 
 static const int PIN_DHT = 4;
 static const int PIN_SOIL_ADC = 34;
@@ -116,13 +117,33 @@ void setup() {
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
-  Serial.print(F("WiFi "));
+  Serial.print(F("Connecting to WiFi "));
+  Serial.print(WIFI_SSID);
+  Serial.print(F(" "));
+
+  const unsigned long wifiTimeoutMs = 30000;
+  const unsigned long wifiStart = millis();
   while (WiFi.status() != WL_CONNECTED) {
+    if (millis() - wifiStart > wifiTimeoutMs) {
+      Serial.println();
+      Serial.println(F("WiFi: timeout — not connected."));
+      Serial.println(F("Check: SSID/password, 2.4 GHz band, signal, router MAC filter."));
+      WiFi.disconnect(true);
+      WiFi.mode(WIFI_AP);
+      WiFi.softAP("AgriSense-setup");
+      Serial.print(F("Started fallback AP: "));
+      Serial.println(WiFi.softAPIP());
+      break;
+    }
     delay(500);
     Serial.print('.');
   }
-  Serial.println();
-  Serial.println(WiFi.localIP());
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println();
+    Serial.print(F("WiFi OK, IP: "));
+    Serial.println(WiFi.localIP());
+  }
 
   server.on("/api/readings", handleApiReadings);
   server.begin();

@@ -1,9 +1,27 @@
 #include <WiFi.h>
 #include <WebServer.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <Wire.h>
 #include <DHT.h>
 #include <BH1750.h>
 #include <math.h>
+#include <string.h>
+
+#if defined(__has_include)
+#  if __has_include("agrisense_secrets.h")
+#    include "agrisense_secrets.h"
+#  endif
+#endif
+#ifndef SUPABASE_HOST
+#  define SUPABASE_HOST "YOUR_PROJECT_REF.supabase.co"
+#endif
+#ifndef SUPABASE_ANON_KEY
+#  define SUPABASE_ANON_KEY "YOUR_SUPABASE_ANON_KEY"
+#endif
+#ifndef DEVICE_ID
+#  define DEVICE_ID "agrisense-001"
+#endif
 
 // Use your real 2.4 GHz Wi‑Fi name and password (ESP32 does not join 5 GHz‑only networks).
 static const char *WIFI_SSID = "YOUR_WIFI_SSID";
@@ -24,6 +42,10 @@ static BH1750 lightMeter;
 static unsigned long lastDhtMs = 0;
 static float lastTempC = NAN;
 static float lastHumidity = NAN;
+
+static unsigned long lastSupabaseMs = 0;
+static const unsigned long SUPABASE_PUSH_INTERVAL_MS = 60000;
+static bool supabasePlaceholderWarned = false;
 
 static int soilMoisturePercent() {
   int raw = analogRead(PIN_SOIL_ADC);
@@ -46,6 +68,72 @@ static void updateDhtIfDue() {
   lastDhtMs = now;
   lastHumidity = dht.readHumidity();
   lastTempC = dht.readTemperature();
+}
+
+static bool supabaseKeysConfigured() {
+  return strcmp(SUPABASE_HOST, "YOUR_PROJECT_REF.supabase.co") != 0 &&
+         strncmp(SUPABASE_ANON_KEY, "YOUR_", 5) != 0;
+}
+
+static void pushReadingToSupabase() {
+  if (!supabaseKeysConfigured()) {
+    if (!supabasePlaceholderWarned) {
+      Serial.println(F("Supabase: add keys — copy agrisense_secrets.h.example to "
+                       "agrisense_secrets.h or edit the defaults at top of this sketch."));
+      supabasePlaceholderWarned = true;
+    }
+    return;
+  }
+
+  updateDhtIfDue();
+
+  float lux = lightMeter.readLightLevel();
+  if (lux < 0) lux = 0;
+  const int soil = soilMoisturePercent();
+  const bool dhtOk = !isnan(lastTempC) && !isnan(lastHumidity);
+
+  char json[384];
+  int n;
+  if (dhtOk) {
+    n = snprintf(
+        json, sizeof(json),
+        "{\"device_id\":\"%s\",\"soil_moisture\":%d,\"temperature\":%.1f,\"humidity\":%.1f,"
+        "\"lux\":%.0f}",
+        DEVICE_ID, soil, lastTempC, lastHumidity, lux);
+  } else {
+    n = snprintf(
+        json, sizeof(json),
+        "{\"device_id\":\"%s\",\"soil_moisture\":%d,\"lux\":%.0f}", DEVICE_ID, soil, lux);
+  }
+
+  if (n <= 0 || (size_t)n >= sizeof(json)) {
+    Serial.println(F("Supabase: JSON buffer overflow"));
+    return;
+  }
+
+  WiFiClientSecure client;
+  client.setInsecure();
+
+  HTTPClient http;
+  String url = String("https://") + SUPABASE_HOST + "/rest/v1/sensor_readings";
+  if (!http.begin(client, url)) {
+    Serial.println(F("Supabase: HTTP begin failed"));
+    return;
+  }
+
+  http.addHeader("apikey", SUPABASE_ANON_KEY);
+  http.addHeader("Authorization", String("Bearer ") + SUPABASE_ANON_KEY);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("Prefer", "return=minimal");
+
+  const int code = http.POST(json);
+  if (code >= 200 && code < 300) {
+    Serial.println(F("Supabase: row inserted"));
+  } else {
+    Serial.printf("Supabase POST %d: ", code);
+    Serial.println(http.getString());
+  }
+  http.end();
 }
 
 static void handleApiReadings() {
@@ -147,8 +235,18 @@ void setup() {
 
   server.on("/api/readings", handleApiReadings);
   server.begin();
+
+  lastSupabaseMs = millis();
 }
 
 void loop() {
   server.handleClient();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    const unsigned long now = millis();
+    if (now - lastSupabaseMs >= SUPABASE_PUSH_INTERVAL_MS) {
+      lastSupabaseMs = now;
+      pushReadingToSupabase();
+    }
+  }
 }

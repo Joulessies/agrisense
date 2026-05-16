@@ -232,6 +232,23 @@
 
                 <!-- KPI summary (JS-rendered) -->
                 <div id="kpiGrid" class="grid grid-cols-1 md:grid-cols-4 gap-5"></div>
+
+                <!-- AI insights: Google Gemini (API key in Settings) -->
+                <div class="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+                    <div class="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                            <p class="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                                <i class="fa-solid fa-wand-magic-sparkles text-agri-600"></i> AI insights
+                            </p>
+                            <p class="text-xs text-slate-500 mt-0.5">Powered by <strong>Google Gemini</strong> when you add an API key under Settings (Admin). Falls back to rule-based analysis if the API is unavailable.</p>
+                        </div>
+                        <button type="button" id="aiInsightsRefreshBtn" class="shrink-0 text-sm px-4 py-2 rounded-lg bg-agri-600 hover:bg-agri-700 text-white font-medium flex items-center gap-2">
+                            <i class="fa-solid fa-rotate"></i> Refresh analysis
+                        </button>
+                    </div>
+                    <p id="aiInsightsMeta" class="px-6 pt-2 text-xs text-slate-400"></p>
+                    <ul id="aiInsightsList" class="p-6 pt-3 space-y-3"></ul>
+                </div>
             </section>
 
             <!-- ============ SETTINGS VIEW ============ -->

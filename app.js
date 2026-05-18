@@ -1,12 +1,6 @@
-/* ============================================================
- * AgriSense — Aloe Vera Monitor
- * Fully functional vanilla-JS dashboard.
- * ============================================================ */
 
-/* ---------- 1) Tailwind theme extension ----------
- * Runs synchronously after the Tailwind CDN script and before the
- * browser parses <body>, so custom classes like `bg-agri-600` work.
- */
+
+
 if (typeof tailwind !== 'undefined') {
     tailwind.config = {
         theme: {
@@ -36,9 +30,7 @@ if (typeof tailwind !== 'undefined') {
     };
 }
 
-/* ============================================================
- * 2) STATE — single source of truth
- * ============================================================ */
+
 const defaultThresholds = {
     soilMoisture: { min: 20, max: 40 },
     temperature:  { min: 25, max: 32 },
@@ -282,7 +274,7 @@ function renderPlantStatus() {
         iconColor = 'text-agri-700'; iconBg = 'bg-agri-100'; icon = 'fa-heart';
         vitality = '92%'; stress = 'Low'; stressColor = 'text-agri-600';
     } else if (out.length === 1) {
-        label = 'Needs Attention';
+        label = 'Warning';
         reason = `${out[0].label} out of range`;
         iconColor = 'text-amber-700'; iconBg = 'bg-amber-100'; icon = 'fa-triangle-exclamation';
         vitality = '72%'; stress = 'Medium'; stressColor = 'text-amber-600';
@@ -306,6 +298,7 @@ function renderPlantStatus() {
             <div>
                 <p class="text-lg font-semibold ${iconColor}">${label}</p>
                 <p class="text-xs text-slate-500">${reason}</p>
+                <i class="fa-solid fa-info-circle ml-2 cursor-pointer" title="AI explanation: Placeholder for model insights"></i>
             </div>
         </div>
         <div class="mt-4 pt-4 border-t border-slate-100 grid grid-cols-3 gap-2 text-center">
@@ -370,7 +363,7 @@ function buildRecommendations() {
         const isLow = status === 'low';
         const map = {
             soilMoisture: isLow
-                ? { title: 'Increase watering', detail: `Add ~1.5 L/m² before noon to recover toward ${s.optimal.min + 5}%.`, icon: 'fa-droplet',         action: { id: 'btnIrrigate',  label: 'Activate irrigation', icon: 'fa-faucet-drip' } }
+                ? { title: 'Water the plant now', detail: `Add ~1.5 L/m² before noon to reach ${s.optimal.min + 5}% moisture.`, icon: 'fa-droplet', action: { id: 'btnWater', label: 'Start watering', icon: 'fa-faucet-drip' } }
                 : { title: 'Pause irrigation',  detail: `Let moisture settle back toward ${s.optimal.max}%.`,                  icon: 'fa-droplet-slash',  action: { id: 'btnPauseIrr',  label: 'Pause irrigation',    icon: 'fa-pause'        } },
             temperature: isLow
                 ? { title: 'Warm the greenhouse', detail: `Aim for ${s.optimal.min}–${s.optimal.max}°C.`, icon: 'fa-temperature-arrow-up', action: { id: 'btnClimateUp',   label: 'Run heaters',    icon: 'fa-fire-flame-curved' } }
@@ -422,7 +415,7 @@ function renderRecommendations() {
     }
 
     const top = recs[0];
-    const irrigating = state.irrigation.active && top.action.id === 'btnIrrigate';
+    // No irrigation logic – removed
     card.className = 'rounded-xl border border-amber-200 bg-amber-50 p-5';
     card.innerHTML = `
         <div class="flex items-center justify-between mb-3">
@@ -441,10 +434,9 @@ function renderRecommendations() {
             </div>
         </div>
         <button id="${top.action.id}"
-                ${irrigating ? 'disabled' : ''}
-                class="mt-4 w-full bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium py-2 rounded-lg flex items-center justify-center gap-2 transition disabled:opacity-60 disabled:cursor-not-allowed">
-            <i class="fa-solid ${irrigating ? 'fa-circle-notch fa-spin' : top.action.icon} text-xs"></i>
-            <span>${irrigating ? 'Irrigating…' : top.action.label}</span>
+                class="mt-4 w-full bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium py-2 rounded-lg flex items-center justify-center gap-2 transition">
+            <i class="fa-solid ${top.action.icon} text-xs"></i>
+            <span>${top.action.label}</span>
         </button>
         ${recs.length > 1 ? `<p class="mt-3 text-[11px] text-amber-700">+${recs.length - 1} more recommendation${recs.length > 2 ? 's' : ''} — see <a href="#" data-go-view="alerts" class="underline font-medium">Alerts</a>.</p>` : ''}
     `;
@@ -452,11 +444,7 @@ function renderRecommendations() {
     // Wire action button
     const btn = $('#' + top.action.id);
     if (btn) {
-        if (top.action.id === 'btnIrrigate') {
-            btn.addEventListener('click', activateIrrigation);
-        } else {
-            btn.addEventListener('click', () => simulateAction(top));
-        }
+        btn.addEventListener('click', () => simulateAction(top));
     }
 
     $$('[data-go-view]', card).forEach(a => {
@@ -464,8 +452,7 @@ function renderRecommendations() {
             e.preventDefault();
             setActiveView(a.dataset.goView);
         });
-    });
-}
+    });}
 
 function renderActivity() {
     const list = $('#activityList');
@@ -505,13 +492,18 @@ function renderAlerts() {
         const st = getStatus(s);
         if (st === 'ok') return;
         if (state.dismissedAlerts.has(s.id)) return;
+        const severity = st === 'high' && s.value > s.optimal.max * 1.25 ? 'critical' : 'warning';
         live.push({
             sensorId: s.id,
             sensor: s.label,
-            severity: st === 'high' && s.value > s.optimal.max * 1.25 ? 'critical' : 'warning',
+            severity,
             message: `${s.label} is ${st === 'low' ? 'below' : 'above'} optimal range — currently ${formatNumber(s.value, s.decimals)}${s.unit === 'lux' ? ' lux' : s.unit} (range ${s.optimal.min}–${s.optimal.max}).`,
             time: formatTime(new Date()),
         });
+        // Critical humidity toast
+        if (s.id === 'humidity' && severity === 'critical') {
+            toast(`Critical humidity! ${s.value}${s.unit}`, 'error');
+        }
     });
 
     // Update badge in sidebar
@@ -555,7 +547,10 @@ function renderAlerts() {
                     <p class="text-sm text-slate-600 mt-1">${a.message}</p>
                     <p class="text-xs text-slate-400 mt-2">Detected at ${a.time}</p>
                 </div>
-                <button data-dismiss-alert="${a.sensorId}" class="text-xs text-slate-500 hover:text-slate-700 font-medium px-2 py-1 rounded hover:bg-slate-100">
+                <button data-resolve-alert="${a.sensorId}" class="text-xs text-slate-500 hover:text-slate-700 font-medium px-2 py-1 rounded hover:bg-slate-100">
+                    <i class="fa-solid fa-check"></i> Mark as resolved
+                </button>
+                <button data-dismiss-alert="${a.sensorId}" class="text-xs text-slate-500 hover:text-slate-700 font-medium px-2 py-1 rounded hover:bg-slate-100 ml-1">
                     <i class="fa-solid fa-xmark"></i> Dismiss
                 </button>
             </div>
@@ -573,6 +568,16 @@ function renderAlerts() {
         <div class="space-y-3">${items}</div>
     `;
 
+    $$('[data-resolve-alert]', container).forEach(btn => {
+        btn.addEventListener('click', () => {
+            const sid = btn.dataset.resolveAlert;
+            state.dismissedAlerts.add(sid);
+            addActivity(`Alert for ${state.sensors[sid].label} resolved`, 'info');
+            toast(`Alert resolved`, 'success');
+            renderAlerts();
+        });
+    });
+
     $$('[data-dismiss-alert]', container).forEach(btn => {
         btn.addEventListener('click', () => {
             const sid = btn.dataset.dismissAlert;
@@ -588,8 +593,7 @@ function renderAlerts() {
         addActivity('All alerts dismissed', 'info');
         toast('All alerts dismissed', 'info');
         renderAlerts();
-    });
-}
+    });}
 
 function renderSensorsView() {
     const container = $('#sensorsContent');

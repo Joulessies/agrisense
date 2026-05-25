@@ -7,7 +7,7 @@ if (typeof tailwind !== 'undefined') {
             extend: {
                 colors: {
                     agri: {
-                        50:  '#f1faf3',
+                        50: '#f1faf3',
                         100: '#dcf2e1',
                         200: '#bce4c8',
                         300: '#8ccfa3',
@@ -33,13 +33,19 @@ if (typeof tailwind !== 'undefined') {
 
 const defaultThresholds = {
     soilMoisture: { min: 20, max: 40 },
-    temperature:  { min: 25, max: 32 },
-    humidity:     { min: 40, max: 70 },
-    light:        { min: 10000, max: 20000 },
+    temperature: { min: 25, max: 32 },
+    humidity: { min: 40, max: 70 },
+    light: { min: 10000, max: 20000 },
 };
 
 const state = {
     role: 'farmer',
+
+    auth: {
+        isAuthenticated: false,
+        currentUser: null,
+        users: [],
+    },
 
     sensors: {
         soilMoisture: {
@@ -72,30 +78,25 @@ const state = {
 
     activity: [
         { time: '8:24 AM', text: 'Soil moisture dropped to 18% in Zone B', tone: 'warning' },
-        { time: '7:52 AM', text: 'Temperature stabilized at 28°C',         tone: 'ok' },
-        { time: '7:30 AM', text: 'Sensor node A-03 reconnected',            tone: 'info' },
+        { time: '7:52 AM', text: 'Temperature stabilized at 28°C', tone: 'ok' },
+        { time: '7:30 AM', text: 'Sensor node A-03 reconnected', tone: 'info' },
     ],
 
     nodes: [
-        { id: 'A-01', zone: 'Zone A', type: 'Soil & moisture',       battery: 87, signal: 92, online: true  },
-        { id: 'A-02', zone: 'Zone A', type: 'Temperature & humidity', battery: 73, signal: 88, online: true  },
-        { id: 'A-03', zone: 'Zone A', type: 'Soil & moisture',       battery: 64, signal: 75, online: true  },
-        { id: 'B-01', zone: 'Zone B', type: 'Soil & moisture',       battery: 91, signal: 80, online: true  },
-        { id: 'B-02', zone: 'Zone B', type: 'Light intensity',        battery: 55, signal: 70, online: true  },
-        { id: 'C-01', zone: 'Zone C', type: 'Multi-sensor',          battery: 22, signal: 65, online: true  },
-        { id: 'C-02', zone: 'Zone C', type: 'Multi-sensor',          battery: 0,  signal: 0,  online: false },
+        { id: 'A-01', zone: 'Zone A', type: 'Soil & moisture', battery: 87, signal: 92, online: true },
+        { id: 'A-02', zone: 'Zone A', type: 'Temperature & humidity', battery: 73, signal: 88, online: true },
+        { id: 'A-03', zone: 'Zone A', type: 'Soil & moisture', battery: 64, signal: 75, online: true },
+        { id: 'B-01', zone: 'Zone B', type: 'Soil & moisture', battery: 91, signal: 80, online: true },
+        { id: 'B-02', zone: 'Zone B', type: 'Light intensity', battery: 55, signal: 70, online: true },
+        { id: 'C-01', zone: 'Zone C', type: 'Multi-sensor', battery: 22, signal: 65, online: true },
+        { id: 'C-02', zone: 'Zone C', type: 'Multi-sensor', battery: 0, signal: 0, online: false },
     ],
 
-    irrigation: { active: false },
     lastSync: new Date(),
     analyticsRange: '7d',
     dismissedAlerts: new Set(),
 
-    /* IoT device connection (HTTP REST polling).
-     * - enabled: user clicked Connect
-     * - status: 'idle' | 'connecting' | 'connected' | 'error'
-     * - pollerId: setInterval handle so we can stop polling cleanly
-     */
+    
     device: {
         enabled: false,
         endpoint: 'http://192.168.1.50/api/readings',
@@ -106,7 +107,7 @@ const state = {
         pollerId: null,
     },
 
-    /* Supabase REST (same table as ESP32). Keys stored in localStorage when set in Settings. */
+    
     supabase: {
         projectUrl: '',
         anonKey: '',
@@ -116,12 +117,7 @@ const state = {
         loading: false,
     },
 
-    /** Google Gemini API key (Settings). Persisted in localStorage. */
-    gemini: {
-        apiKey: '',
-    },
-
-    /** AI insights: primary = Google Gemini JSON; fallback = heuristics if Gemini fails. */
+    
     aiInsights: {
         updatedAt: null,
         loading: false,
@@ -130,9 +126,14 @@ const state = {
         geminiItems: null,
         autoFetchAttempted: false,
     },
+
+    
+    gemini: {
+        apiKey: '',
+    },
 };
 
-/* Restore persisted device config if available. */
+
 try {
     const savedEndpoint = localStorage.getItem('agrisense.device.endpoint');
     const savedInterval = localStorage.getItem('agrisense.device.pollIntervalMs');
@@ -147,13 +148,57 @@ try {
     const geminiKey = localStorage.getItem('agrisense.gemini.apiKey');
     if (geminiKey) state.gemini.apiKey = geminiKey;
 } catch (_) {
-    /* localStorage may be unavailable (file://) — ignore silently. */
+    
 }
 
-/* ============================================================
- * 3) HELPERS
- * ============================================================ */
-const $  = (sel, root = document) => root.querySelector(sel);
+
+(function bootstrapAuth() {
+    const DEFAULT_USERS = [
+        { username: 'admin',  name: 'Admin',  role: 'admin',  password: 'admin123'  },
+        { username: 'farmer', name: 'Farmer', role: 'farmer', password: 'farmer123' },
+    ];
+    try {
+        const raw = localStorage.getItem('agrisense_users');
+        state.auth.users = raw ? JSON.parse(raw) : DEFAULT_USERS;
+        if (!Array.isArray(state.auth.users) || state.auth.users.length === 0) {
+            state.auth.users = DEFAULT_USERS;
+        }
+        DEFAULT_USERS.forEach(def => {
+            const existing = state.auth.users.find(u => u.username === def.username);
+            if (existing) {
+                existing.name = def.name;
+                existing.role = def.role;
+            } else {
+                state.auth.users.unshift(def);
+            }
+        });
+        localStorage.setItem('agrisense_users', JSON.stringify(state.auth.users));
+    } catch (_) {
+        state.auth.users = DEFAULT_USERS;
+    }
+    try {
+        const session = localStorage.getItem('agrisense_session');
+        if (session) {
+            const user = JSON.parse(session);
+            const found = state.auth.users.find(u => u.username === user.username);
+            if (found) {
+                state.auth.isAuthenticated = true;
+                state.auth.currentUser = found;
+                state.role = found.role;
+                localStorage.setItem('agrisense_session', JSON.stringify(found));
+            } else {
+                localStorage.removeItem('agrisense_session');
+            }
+        }
+    } catch (_) {
+        localStorage.removeItem('agrisense_session');
+    }
+}());
+
+/* * 3) HELPERS
+ * */
+
+const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -185,9 +230,9 @@ function getStatus(sensor) {
 
 function getStatusBadge(sensor) {
     const s = getStatus(sensor);
-    if (s === 'ok')  return { label: 'Optimal',  icon: 'fa-circle-check',          bg: 'bg-agri-100',  text: 'text-agri-700'  };
-    if (s === 'low') return { label: 'Warning',  icon: 'fa-triangle-exclamation',  bg: 'bg-amber-100', text: 'text-amber-700' };
-    return                  { label: 'High',     icon: 'fa-triangle-exclamation',  bg: 'bg-rose-100',  text: 'text-rose-700'  };
+    if (s === 'ok') return { label: 'Optimal', icon: 'fa-circle-check', bg: 'bg-agri-100', text: 'text-agri-700' };
+    if (s === 'low') return { label: 'Warning', icon: 'fa-triangle-exclamation', bg: 'bg-amber-100', text: 'text-amber-700' };
+    return { label: 'High', icon: 'fa-triangle-exclamation', bg: 'bg-rose-100', text: 'text-rose-700' };
 }
 
 function timeBasedGreeting() {
@@ -197,16 +242,17 @@ function timeBasedGreeting() {
     return 'Good evening';
 }
 
-/* ---------- Toasts ---------- */
+/* Toasts */
+
 function toast(message, type = 'info', timeout = 2600) {
     const container = $('#toastContainer');
     if (!container) return;
     const el = document.createElement('div');
     el.className = `toast toast-${type}`;
     const icon = type === 'success' ? 'fa-circle-check'
-              : type === 'warning' ? 'fa-triangle-exclamation'
-              : type === 'error'   ? 'fa-circle-xmark'
-              : 'fa-circle-info';
+        : type === 'warning' ? 'fa-triangle-exclamation'
+            : type === 'error' ? 'fa-circle-xmark'
+                : 'fa-circle-info';
     el.innerHTML = `<i class="fa-solid ${icon}"></i><span>${message}</span>`;
     container.appendChild(el);
     setTimeout(() => {
@@ -215,9 +261,9 @@ function toast(message, type = 'info', timeout = 2600) {
     }, timeout);
 }
 
-/* ============================================================
- * 4) RENDERERS
- * ============================================================ */
+/* * 4) RENDERERS
+ * */
+
 
 function renderSensorCards() {
     const grid = $('#sensorGrid');
@@ -230,7 +276,7 @@ function renderSensorCards() {
         const pct = clamp(((s.value - s.min) / (s.max - s.min)) * 100, 2, 100);
 
         let barClass = s.barColor;
-        if (status === 'low')  barClass = 'bg-amber-400';
+        if (status === 'low') barClass = 'bg-amber-400';
         if (status === 'high') barClass = 'bg-rose-400';
 
         const { num, unit } = formatSensorValue(s);
@@ -363,29 +409,29 @@ function buildRecommendations() {
         const isLow = status === 'low';
         const map = {
             soilMoisture: isLow
-                ? { title: 'Water the plant now', detail: `Add ~1.5 L/m² before noon to reach ${s.optimal.min + 5}% moisture.`, icon: 'fa-droplet', action: { id: 'btnWater', label: 'Start watering', icon: 'fa-faucet-drip' } }
-                : { title: 'Pause irrigation',  detail: `Let moisture settle back toward ${s.optimal.max}%.`,                  icon: 'fa-droplet-slash',  action: { id: 'btnPauseIrr',  label: 'Pause irrigation',    icon: 'fa-pause'        } },
+                ? { title: 'Water the plant now', detail: `Add ~1.5 L/m² before noon to reach ${s.optimal.min + 5}% moisture.`, icon: 'fa-droplet' }
+                : { title: 'Pause irrigation', detail: `Let moisture settle back toward ${s.optimal.max}%.`, icon: 'fa-droplet-slash' },
             temperature: isLow
-                ? { title: 'Warm the greenhouse', detail: `Aim for ${s.optimal.min}–${s.optimal.max}°C.`, icon: 'fa-temperature-arrow-up', action: { id: 'btnClimateUp',   label: 'Run heaters',    icon: 'fa-fire-flame-curved' } }
-                : { title: 'Cool the greenhouse', detail: `Reduce to ${s.optimal.min}–${s.optimal.max}°C.`, icon: 'fa-temperature-arrow-down', action: { id: 'btnClimateDown', label: 'Open vents',    icon: 'fa-wind' } },
+                ? { title: 'Warm the greenhouse', detail: `Aim for ${s.optimal.min}–${s.optimal.max}°C.`, icon: 'fa-temperature-arrow-up', action: { id: 'btnClimateUp', label: 'Run heaters', icon: 'fa-fire-flame-curved' } }
+                : { title: 'Cool the greenhouse', detail: `Reduce to ${s.optimal.min}–${s.optimal.max}°C.`, icon: 'fa-temperature-arrow-down', action: { id: 'btnClimateDown', label: 'Open vents', icon: 'fa-wind' } },
             humidity: isLow
-                ? { title: 'Boost humidity',  detail: `Target: ${s.optimal.min}–${s.optimal.max}%.`, icon: 'fa-cloud-rain', action: { id: 'btnMistersOn',  label: 'Run misters',   icon: 'fa-spray-can' } }
-                : { title: 'Reduce humidity', detail: `Target: ${s.optimal.min}–${s.optimal.max}%.`, icon: 'fa-wind',       action: { id: 'btnMistersOff', label: 'Ventilate',     icon: 'fa-wind'      } },
+                ? { title: 'Boost humidity', detail: `Target: ${s.optimal.min}–${s.optimal.max}%.`, icon: 'fa-cloud-rain', action: { id: 'btnMistersOn', label: 'Run misters', icon: 'fa-spray-can' } }
+                : { title: 'Reduce humidity', detail: `Target: ${s.optimal.min}–${s.optimal.max}%.`, icon: 'fa-wind', action: { id: 'btnMistersOff', label: 'Ventilate', icon: 'fa-wind' } },
             light: isLow
-                ? { title: 'Increase light', detail: `Optimal: ${formatNumber(s.optimal.min)}–${formatNumber(s.optimal.max)} lux.`, icon: 'fa-lightbulb', action: { id: 'btnLightsOn',  label: 'Turn on grow lights', icon: 'fa-lightbulb' } }
-                : { title: 'Reduce light',   detail: `Optimal: ${formatNumber(s.optimal.min)}–${formatNumber(s.optimal.max)} lux.`, icon: 'fa-cloud',     action: { id: 'btnLightsOff', label: 'Deploy shade cloth',  icon: 'fa-umbrella'  } },
+                ? { title: 'Increase light', detail: `Optimal: ${formatNumber(s.optimal.min)}–${formatNumber(s.optimal.max)} lux.`, icon: 'fa-lightbulb', action: { id: 'btnLightsOn', label: 'Turn on grow lights', icon: 'fa-lightbulb' } }
+                : { title: 'Reduce light', detail: `Optimal: ${formatNumber(s.optimal.min)}–${formatNumber(s.optimal.max)} lux.`, icon: 'fa-cloud', action: { id: 'btnLightsOff', label: 'Deploy shade cloth', icon: 'fa-umbrella' } },
         };
 
-        const r = map[s.id];
-        recs.push({
-            sensorId: s.id,
-            text: `${r.title} — ${s.label.toLowerCase()} ${isLow ? 'below' : 'above'} optimal range.`,
-            detail: r.detail,
-            icon: r.icon,
-            action: r.action,
-        });
+    const r = map[s.id];
+    recs.push({
+        sensorId: s.id,
+        text: `${r.title} — ${s.label.toLowerCase()} ${isLow ? 'below' : 'above'} optimal range.`,
+        detail: r.detail,
+        icon: r.icon,
+        action: r.action,
     });
-    return recs;
+});
+return recs;
 }
 
 function renderRecommendations() {
@@ -415,7 +461,6 @@ function renderRecommendations() {
     }
 
     const top = recs[0];
-    // No irrigation logic – removed
     card.className = 'rounded-xl border border-amber-200 bg-amber-50 p-5';
     card.innerHTML = `
         <div class="flex items-center justify-between mb-3">
@@ -433,18 +478,21 @@ function renderRecommendations() {
                 <p class="text-xs text-amber-700 mt-1">${top.detail}</p>
             </div>
         </div>
-        <button id="${top.action.id}"
-                class="mt-4 w-full bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium py-2 rounded-lg flex items-center justify-center gap-2 transition">
-            <i class="fa-solid ${top.action.icon} text-xs"></i>
-            <span>${top.action.label}</span>
-        </button>
+        ${top.action
+            ? `<button id="${top.action.id}"
+                    class="mt-4 w-full bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium py-2 rounded-lg flex items-center justify-center gap-2 transition">
+                <i class="fa-solid ${top.action.icon} text-xs"></i>
+                <span>${top.action.label}</span>
+            </button>`
+            : ''
+        }
         ${recs.length > 1 ? `<p class="mt-3 text-[11px] text-amber-700">+${recs.length - 1} more recommendation${recs.length > 2 ? 's' : ''} — see <a href="#" data-go-view="alerts" class="underline font-medium">Alerts</a>.</p>` : ''}
     `;
-
-    // Wire action button
-    const btn = $('#' + top.action.id);
-    if (btn) {
-        btn.addEventListener('click', () => simulateAction(top));
+    if (top.action) {
+        const btn = $('#' + top.action.id);
+        if (btn) {
+            btn.addEventListener('click', () => simulateAction(top));
+        }
     }
 
     $$('[data-go-view]', card).forEach(a => {
@@ -452,7 +500,8 @@ function renderRecommendations() {
             e.preventDefault();
             setActiveView(a.dataset.goView);
         });
-    });}
+    });
+}
 
 function renderActivity() {
     const list = $('#activityList');
@@ -464,10 +513,10 @@ function renderActivity() {
     }
 
     list.innerHTML = state.activity.slice(0, 6).map(item => {
-        const dot = item.tone === 'warning'  ? 'bg-amber-400'
-                 : item.tone === 'critical' ? 'bg-rose-400'
-                 : item.tone === 'ok'       ? 'bg-agri-500'
-                 :                            'bg-sky-400';
+        const dot = item.tone === 'warning' ? 'bg-amber-400'
+            : item.tone === 'critical' ? 'bg-rose-400'
+                : item.tone === 'ok' ? 'bg-agri-500'
+                    : 'bg-sky-400';
         return `
             <li class="px-5 py-3 flex items-center gap-3">
                 <span class="w-2 h-2 rounded-full ${dot}"></span>
@@ -500,13 +549,10 @@ function renderAlerts() {
             message: `${s.label} is ${st === 'low' ? 'below' : 'above'} optimal range — currently ${formatNumber(s.value, s.decimals)}${s.unit === 'lux' ? ' lux' : s.unit} (range ${s.optimal.min}–${s.optimal.max}).`,
             time: formatTime(new Date()),
         });
-        // Critical humidity toast
         if (s.id === 'humidity' && severity === 'critical') {
             toast(`Critical humidity! ${s.value}${s.unit}`, 'error');
         }
     });
-
-    // Update badge in sidebar
     const badge = $('#sidebarAlertBadge');
     if (badge) {
         if (live.length > 0) {
@@ -593,7 +639,8 @@ function renderAlerts() {
         addActivity('All alerts dismissed', 'info');
         toast('All alerts dismissed', 'info');
         renderAlerts();
-    });}
+    });
+}
 
 function renderSensorsView() {
     const container = $('#sensorsContent');
@@ -604,7 +651,7 @@ function renderSensorsView() {
 
     const rows = state.nodes.map(n => {
         const batteryColor = n.battery > 50 ? 'text-agri-600' : n.battery > 25 ? 'text-amber-600' : 'text-rose-600';
-        const signalColor  = n.signal  > 60 ? 'text-agri-600' : n.signal  > 30 ? 'text-amber-600' : 'text-rose-600';
+        const signalColor = n.signal > 60 ? 'text-agri-600' : n.signal > 30 ? 'text-amber-600' : 'text-rose-600';
         const status = n.online
             ? '<span class="text-[11px] font-semibold text-agri-700 bg-agri-100 px-2 py-0.5 rounded-full"><i class="fa-solid fa-circle text-[6px] mr-1 align-middle"></i>Online</span>'
             : '<span class="text-[11px] font-semibold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full"><i class="fa-solid fa-circle text-[6px] mr-1 align-middle"></i>Offline</span>';
@@ -669,8 +716,6 @@ function renderSensorsView() {
             </div>
         </div>
     `;
-
-    // Wire actions
     $$('[data-node-action]', container).forEach(btn => {
         btn.addEventListener('click', () => {
             const action = btn.dataset.nodeAction;
@@ -681,7 +726,7 @@ function renderSensorsView() {
             if (action === 'reconnect') {
                 node.online = true;
                 node.battery = Math.max(node.battery, 60);
-                node.signal  = Math.max(node.signal,  70);
+                node.signal = Math.max(node.signal, 70);
                 addActivity(`Sensor node ${id} reconnected`, 'ok');
                 toast(`Node ${id} is back online`, 'success');
             } else {
@@ -738,12 +783,13 @@ function renderSettings() {
         </div>
     `).join('');
 
-    /* ---------- Device connection panel ---------- */
+    /* Device connection panel */
+
     const dev = state.device;
     const statusPill = (() => {
         if (!dev.enabled) return '<span class="text-[11px] text-slate-500 bg-slate-100 px-2 py-1 rounded-full"><i class="fa-solid fa-plug-circle-xmark mr-1"></i>Disconnected (simulation active)</span>';
         if (dev.status === 'connected') return '<span class="text-[11px] text-agri-700 bg-agri-100 px-2 py-1 rounded-full"><i class="fa-solid fa-plug-circle-check mr-1"></i>Live data flowing</span>';
-        if (dev.status === 'error')     return `<span class="text-[11px] text-rose-700 bg-rose-100 px-2 py-1 rounded-full"><i class="fa-solid fa-circle-exclamation mr-1"></i>Error: ${dev.lastError || 'connection failed'}</span>`;
+        if (dev.status === 'error') return `<span class="text-[11px] text-rose-700 bg-rose-100 px-2 py-1 rounded-full"><i class="fa-solid fa-circle-exclamation mr-1"></i>Error: ${dev.lastError || 'connection failed'}</span>`;
         return '<span class="text-[11px] text-amber-700 bg-amber-100 px-2 py-1 rounded-full"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Connecting…</span>';
     })();
 
@@ -771,8 +817,8 @@ function renderSettings() {
                 </div>
                 <div class="sm:col-span-2">
                     ${dev.enabled
-                        ? '<button id="deviceDisconnectBtn" class="w-full text-sm px-3 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-medium">Disconnect</button>'
-                        : `<button id="deviceConnectBtn" ${isAdmin ? '' : 'disabled'} class="w-full text-sm px-3 py-2 rounded-lg bg-agri-600 hover:bg-agri-700 text-white font-medium disabled:opacity-60 disabled:cursor-not-allowed">Connect</button>`}
+            ? '<button id="deviceDisconnectBtn" class="w-full text-sm px-3 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-medium">Disconnect</button>'
+            : `<button id="deviceConnectBtn" ${isAdmin ? '' : 'disabled'} class="w-full text-sm px-3 py-2 rounded-lg bg-agri-600 hover:bg-agri-700 text-white font-medium disabled:opacity-60 disabled:cursor-not-allowed">Connect</button>`}
                 </div>
             </div>
 
@@ -809,8 +855,8 @@ function renderSettings() {
                     <p class="text-xs text-slate-500 mt-0.5">Same <code class="font-mono text-[11px]">sensor_readings</code> table the ESP32 writes to (REST).</p>
                 </div>
                 ${sb.loading
-        ? '<span class="text-[11px] text-amber-700 bg-amber-100 px-2 py-1 rounded-full"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Loading…</span>'
-        : '<span class="text-[11px] text-slate-500 bg-slate-100 px-2 py-1 rounded-full"><i class="fa-solid fa-database mr-1"></i>PostgREST</span>'}
+            ? '<span class="text-[11px] text-amber-700 bg-amber-100 px-2 py-1 rounded-full"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Loading…</span>'
+            : '<span class="text-[11px] text-slate-500 bg-slate-100 px-2 py-1 rounded-full"><i class="fa-solid fa-database mr-1"></i>PostgREST</span>'}
             </div>
             <div class="px-6 py-4 grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                 <div class="sm:col-span-5">
@@ -898,8 +944,8 @@ function renderSettings() {
                     <p class="text-xs text-slate-500 mt-0.5">Optimal ranges that drive sensor status and alerts.</p>
                 </div>
                 ${isAdmin
-                    ? '<span class="text-[11px] text-agri-700 bg-agri-100 px-2 py-1 rounded-full"><i class="fa-solid fa-unlock mr-1"></i>Admin mode</span>'
-                    : '<span class="text-[11px] text-slate-500 bg-slate-100 px-2 py-1 rounded-full"><i class="fa-solid fa-lock mr-1"></i>Read-only as Farmer</span>'}
+            ? '<span class="text-[11px] text-agri-700 bg-agri-100 px-2 py-1 rounded-full"><i class="fa-solid fa-unlock mr-1"></i>Admin mode</span>'
+            : '<span class="text-[11px] text-slate-500 bg-slate-100 px-2 py-1 rounded-full"><i class="fa-solid fa-lock mr-1"></i>Read-only as Farmer</span>'}
             </div>
             <div class="px-6 py-3">${rows}</div>
             <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 rounded-b-xl">
@@ -914,7 +960,8 @@ function renderSettings() {
         </div>
     `;
 
-    /* ---------- Wire device panel ---------- */
+    /* Wire device panel */
+
     const endpointInput = $('#deviceEndpoint', container);
     const intervalInput = $('#devicePollInterval', container);
 
@@ -942,7 +989,7 @@ function renderSettings() {
             localStorage.setItem('agrisense.supabase.url', state.supabase.projectUrl);
             localStorage.setItem('agrisense.supabase.anonKey', state.supabase.anonKey);
             localStorage.setItem('agrisense.supabase.logLimit', String(state.supabase.logLimit));
-        } catch (_) { /* ignore */ }
+        } catch (_) {  }
     };
 
     supabaseUrlEl?.addEventListener('input', () => {
@@ -968,14 +1015,12 @@ function renderSettings() {
         state.gemini.apiKey = el ? el.value.trim() : '';
         try {
             localStorage.setItem('agrisense.gemini.apiKey', state.gemini.apiKey);
-        } catch (_) { /* ignore */ }
+        } catch (_) {  }
         state.aiInsights.autoFetchAttempted = false;
         state.aiInsights.geminiItems = null;
         state.aiInsights.error = null;
         renderAiInsights();
     });
-
-    // Wire inputs
     const draft = {};
     Object.values(state.sensors).forEach(s => { draft[s.id] = { ...s.optimal }; });
 
@@ -1035,17 +1080,16 @@ function renderKpiGrid() {
 
     const kpis = [
         { label: 'Avg. soil moisture', value: `${avg(data.soil).toFixed(1)}%`, delta: trend(data.soil), unit: '%', invert: true },
-        { label: 'Avg. temperature',   value: `${avg(data.temp).toFixed(1)}°C`, delta: trend(data.temp), unit: '°C' },
-        { label: 'Avg. humidity',      value: `${avg(data.humid).toFixed(0)}%`, delta: trend(data.humid), unit: '%' },
-        { label: 'Current soil',       value: `${formatNumber(state.sensors.soilMoisture.value, 0)}%`, delta: 0 },
+        { label: 'Avg. temperature', value: `${avg(data.temp).toFixed(1)}°C`, delta: trend(data.temp), unit: '°C' },
+        { label: 'Avg. humidity', value: `${avg(data.humid).toFixed(0)}%`, delta: trend(data.humid), unit: '%' },
+        { label: 'Current soil', value: `${formatNumber(state.sensors.soilMoisture.value, 0)}%`, delta: 0 },
     ];
 
     grid.innerHTML = kpis.map(k => {
         let trendHtml = '<p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-minus"></i> Stable</p>';
         if (Math.abs(k.delta) > 0.1) {
             const rising = k.delta > 0;
-            const arrow  = rising ? 'fa-arrow-up' : 'fa-arrow-down';
-            // For inverted KPIs (e.g. soil moisture), rising is good; for others, neutral/amber on decline.
+            const arrow = rising ? 'fa-arrow-up' : 'fa-arrow-down';
             const good = k.invert ? rising : rising;
             const color = good && Math.abs(k.delta) < 5 ? 'text-agri-600' : 'text-amber-600';
             trendHtml = `<p class="text-xs ${color} mt-1"><i class="fa-solid ${arrow}"></i> ${Math.abs(k.delta).toFixed(1)}${k.unit || ''} over period</p>`;
@@ -1060,7 +1104,7 @@ function renderKpiGrid() {
     }).join('');
 }
 
-/** Primary model; fallbacks used if the API returns 404 for an retired model name. */
+
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_MODEL_FALLBACKS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
 
@@ -1512,33 +1556,62 @@ function renderSidebarStats() {
 
 function renderHeader() {
     $('#lastSyncTime').textContent = formatTime(state.lastSync);
-    $('#userRoleLabel').textContent = state.role === 'admin' ? 'System Administrator' : 'Field Operator';
-    $('#greetingHeader').textContent = `${timeBasedGreeting()}, Julius`;
+
+    const user    = state.auth.currentUser;
+    const name    = user ? user.name : 'Guest';
+    const isAdmin = state.role === 'admin';
+    $('#userRoleLabel').textContent = isAdmin ? 'System Administrator' : 'Field Operator';
+    $('#greetingHeader').textContent = `${timeBasedGreeting()}, ${name.split(' ')[0]}`;
+    const nameEl = $('#headerUserName');
+    if (nameEl) nameEl.textContent = name;
+    const avatarEl = $('#headerAvatar');
+    if (avatarEl) {
+        const initials = name.split(' ').filter(Boolean).map(n => n[0]).join('').substring(0, 2).toUpperCase();
+        avatarEl.textContent = initials;
+        avatarEl.style.background = isAdmin
+            ? 'linear-gradient(135deg, #6366f1, #4f46e5)'
+            : 'linear-gradient(135deg, #10b981, #059669)';
+    }
 }
 
 function renderRoleVisibility() {
-    document.body.classList.toggle('role-admin',  state.role === 'admin');
+    document.body.classList.toggle('role-admin', state.role === 'admin');
     document.body.classList.toggle('role-farmer', state.role === 'farmer');
 }
 
-function renderAll() {
-    renderSensorCards();
-    renderPlantStatus();
-    renderHarvest();
-    renderRecommendations();
-    renderActivity();
-    renderAlerts();
-    renderSensorsView();
-    renderSettings();
-    renderSidebarStats();
-    renderHeader();
-    renderRoleVisibility();
-    renderConnectionIndicator();
-    updateAnalyticsCharts();
+function renderRoleBanner() {
+    if (state.role === 'admin') {
+        const userCount = $('#adminUserCount');
+        const nodeCount = $('#adminNodeCount');
+        if (userCount) userCount.textContent = state.auth.users.length;
+        if (nodeCount) nodeCount.textContent = state.nodes.filter(n => n.online).length;
+    } else {
+        const plantAge     = $('#farmerPlantAge');
+        const activeNodes  = $('#farmerActiveNodes');
+        if (plantAge)    plantAge.textContent    = state.plant.age;
+        if (activeNodes) activeNodes.textContent = state.nodes.filter(n => n.online).length;
+    }
 }
 
-/* ============================================================
- * 4b) IoT DEVICE CONNECTION (HTTP REST polling)
+function renderAll() {
+    const safe = (fn) => { try { fn(); } catch(e) { console.error('[renderAll]', fn.name, e); } };
+    safe(renderSensorCards);
+    safe(renderPlantStatus);
+    safe(renderHarvest);
+    safe(renderRecommendations);
+    safe(renderActivity);
+    safe(renderAlerts);
+    safe(renderSensorsView);
+    safe(renderSettings);
+    safe(renderSidebarStats);
+    safe(renderHeader);
+    safe(renderRoleVisibility);
+    safe(renderRoleBanner);
+    safe(renderConnectionIndicator);
+    safe(updateAnalyticsCharts);
+}
+
+/* * 4b) IoT DEVICE CONNECTION (HTTP REST polling)
  *
  *   Expected JSON shape from the device (any subset works):
  *   {
@@ -1553,13 +1626,14 @@ function renderAll() {
  *
  *   The device MUST send CORS headers (Access-Control-Allow-Origin: *)
  *   or be on the same origin as this page.
- * ============================================================ */
+ * */
+
 
 const SENSOR_KEY_ALIASES = {
     soilMoisture: ['soilMoisture', 'soil_moisture', 'soil', 'moisture'],
-    temperature:  ['temperature', 'temp', 'temp_c', 'temperatureC'],
-    humidity:     ['humidity', 'humid', 'rh', 'relative_humidity'],
-    light:        ['light', 'lux', 'lightIntensity', 'light_intensity'],
+    temperature: ['temperature', 'temp', 'temp_c', 'temperatureC'],
+    humidity: ['humidity', 'humid', 'rh', 'relative_humidity'],
+    light: ['light', 'lux', 'lightIntensity', 'light_intensity'],
 };
 
 function pickValue(source, aliases) {
@@ -1642,7 +1716,7 @@ function connectDevice() {
     try {
         localStorage.setItem('agrisense.device.endpoint', state.device.endpoint);
         localStorage.setItem('agrisense.device.pollIntervalMs', String(state.device.pollIntervalMs));
-    } catch (_) { /* ignore */ }
+    } catch (_) {  }
 
     addActivity(`Connecting to device at ${state.device.endpoint}`, 'info');
     toast('Connecting to device…', 'info');
@@ -1785,8 +1859,6 @@ function renderConnectionIndicator() {
     const pulse = $('#connectionDotPulse');
     const solid = $('#connectionDotSolid');
     if (!label || !pulse || !solid) return;
-
-    // Wipe color classes we toggle
     const colorClasses = ['bg-agri-500', 'bg-amber-400', 'bg-rose-500', 'bg-slate-400'];
     pulse.classList.remove(...colorClasses, 'live-dot');
     solid.classList.remove(...colorClasses);
@@ -1808,9 +1880,9 @@ function renderConnectionIndicator() {
     if (animate) pulse.classList.add('live-dot');
 }
 
-/* ============================================================
- * 5) ACTIONS
- * ============================================================ */
+/* * 5) ACTIONS
+ * */
+
 
 function fluctuate(s, intensity = 1) {
     const range = (s.max - s.min) * 0.015 * intensity;
@@ -1826,7 +1898,6 @@ function refreshSensors() {
 
     setTimeout(() => {
         Object.values(state.sensors).forEach(s => fluctuate(s, 0.8));
-        // Light tends to be high during day, simulate
         state.lastSync = new Date();
         icon?.classList.remove('fa-spin');
         if (btn) btn.disabled = false;
@@ -1836,34 +1907,6 @@ function refreshSensors() {
     }, 700);
 }
 
-function activateIrrigation() {
-    if (state.irrigation.active) return;
-    state.irrigation.active = true;
-    state.dismissedAlerts.delete('soilMoisture');
-    addActivity('Irrigation system activated', 'info');
-    toast('Irrigation started', 'info');
-    renderRecommendations();
-
-    const targetMin = state.sensors.soilMoisture.optimal.min;
-    const target = targetMin + 8;
-
-    const ticker = setInterval(() => {
-        const s = state.sensors.soilMoisture;
-        const remaining = target - s.value;
-        if (remaining <= 0.3) {
-            clearInterval(ticker);
-            state.irrigation.active = false;
-            addActivity(`Irrigation complete — moisture at ${formatNumber(s.value, 0)}%`, 'ok');
-            toast('Irrigation cycle complete', 'success');
-            renderAll();
-            return;
-        }
-        s.value = clamp(s.value + Math.max(0.6, remaining * 0.25), s.min, s.max);
-        renderSensorCards();
-        renderPlantStatus();
-        renderAlerts();
-    }, 500);
-}
 
 function simulateAction(rec) {
     const sensor = state.sensors[rec.sensorId];
@@ -1931,32 +1974,36 @@ function setRole(role) {
     toast(`Switched to ${role === 'admin' ? 'Admin' : 'Farmer'} role`, 'info');
 }
 
-/* ============================================================
- * 6) VIEW ROUTER
- * ============================================================ */
+/* * 6) VIEW ROUTER
+ * */
+
 const viewMeta = {
     dashboard: { title: 'Dashboard', subtitle: 'Real-time overview of your aloe vera crop' },
-    sensors:   { title: 'Sensors',   subtitle: 'Diagnostics for all connected nodes' },
-    alerts:    { title: 'Alerts',    subtitle: 'Triggered warnings and notifications' },
+    sensors:   { title: 'Sensors', subtitle: 'Diagnostics for all connected nodes' },
+    alerts:    { title: 'Alerts', subtitle: 'Triggered warnings and notifications' },
     analytics: { title: 'Analytics', subtitle: "Insights and trends across your crop's vital signs" },
-    settings:  { title: 'Settings',  subtitle: 'Configure thresholds and preferences' },
+    settings:  { title: 'Settings', subtitle: 'Configure thresholds and preferences' },
+    users:     { title: 'User Management', subtitle: 'Manage credentials, names, and system roles' },
 };
 
 function setActiveView(viewName) {
     if (!viewMeta[viewName]) viewName = 'dashboard';
     $$('.nav-link').forEach(link => link.classList.toggle('active', link.dataset.view === viewName));
     $$('.view').forEach(section => section.classList.toggle('active', section.id === `view-${viewName}`));
-    $('#pageTitle').textContent    = viewMeta[viewName].title;
+    $('#pageTitle').textContent = viewMeta[viewName].title;
     $('#pageSubtitle').textContent = viewMeta[viewName].subtitle;
     if (viewName === 'analytics') {
         initChartsIfNeeded();
         scheduleGeminiAutoFetchOnAnalytics();
     }
+    if (viewName === 'users') {
+        renderUsersView();
+    }
 }
 
-/* ============================================================
- * 7) CHARTS
- * ============================================================ */
+/* * 7) CHARTS
+ * */
+
 let radarChart, barChart;
 
 function computeRadarData() {
@@ -1965,11 +2012,11 @@ function computeRadarData() {
         const v = sensor.value;
         const { min, max } = sensor.optimal;
         if (v >= min && v <= max) return 88 + Math.random() * 6;
-        if (v < min)  return clamp((v / min) * 75, 25, 80);
+        if (v < min) return clamp((v / min) * 75, 25, 80);
         return clamp((max / v) * 75, 25, 80);
     };
     return [
-        78, // nutrients (placeholder until that sensor exists)
+        78,
         scoreFor(s.temperature),
         scoreFor(s.humidity),
         scoreFor(s.light),
@@ -1979,7 +2026,7 @@ function computeRadarData() {
 
 function initChartsIfNeeded() {
     if (!radarChart) initRadarChart();
-    if (!barChart)   initBarChart();
+    if (!barChart) initBarChart();
     updateAnalyticsCharts();
 }
 
@@ -2026,20 +2073,20 @@ function initRadarChart() {
 function getBarData(range) {
     if (range === '30d') return {
         labels: ['Wk 1', 'Wk 2', 'Wk 3', 'Wk 4'],
-        soil:  [28, 26, 24, 22],
-        temp:  [27, 27, 28, 28],
+        soil: [28, 26, 24, 22],
+        temp: [27, 27, 28, 28],
         humid: [58, 61, 63, 65],
     };
     if (range === 'season') return {
         labels: ['Mar', 'Apr', 'May'],
-        soil:  [32, 27, 23],
-        temp:  [24, 27, 29],
+        soil: [32, 27, 23],
+        temp: [24, 27, 29],
         humid: [55, 60, 64],
     };
     return {
         labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-        soil:  [26, 24, 23, 22, 20, 19, 18],
-        temp:  [27, 28, 29, 28, 27, 28, 28],
+        soil: [26, 24, 23, 22, 20, 19, 18],
+        temp: [27, 28, 29, 28, 27, 28, 28],
         humid: [60, 62, 64, 65, 63, 66, 65],
     };
 }
@@ -2053,9 +2100,9 @@ function initBarChart() {
         data: {
             labels: data.labels,
             datasets: [
-                { label: 'Soil moisture (%)', data: data.soil,  backgroundColor: '#349658', borderRadius: 6, maxBarThickness: 22 },
-                { label: 'Temperature (°C)',   data: data.temp,  backgroundColor: '#f59e0b', borderRadius: 6, maxBarThickness: 22 },
-                { label: 'Humidity (%)',       data: data.humid, backgroundColor: '#38bdf8', borderRadius: 6, maxBarThickness: 22 },
+                { label: 'Soil moisture (%)', data: data.soil, backgroundColor: '#349658', borderRadius: 6, maxBarThickness: 22 },
+                { label: 'Temperature (°C)', data: data.temp, backgroundColor: '#f59e0b', borderRadius: 6, maxBarThickness: 22 },
+                { label: 'Humidity (%)', data: data.humid, backgroundColor: '#38bdf8', borderRadius: 6, maxBarThickness: 22 },
             ],
         },
         options: {
@@ -2089,24 +2136,20 @@ function updateAnalyticsCharts() {
     renderAiInsights();
 }
 
-/* ============================================================
- * 8) LIVE SIMULATION
- * ============================================================ */
+/* * 8) LIVE SIMULATION
+ * */
+
 function simulationTick() {
-    // If a real device is connected, it owns the readings — don't fight it.
     if (state.device.enabled && state.device.status === 'connected') return;
 
     Object.values(state.sensors).forEach(s => {
-        if (s.id === 'soilMoisture' && !state.irrigation.active) {
-            // Soil moisture trends down very slightly over time
+        if (s.id === 'soilMoisture') {
             s.value = clamp(s.value + (Math.random() - 0.7) * 0.6, s.min, s.max);
         } else {
             fluctuate(s, 0.5);
         }
     });
     state.lastSync = new Date();
-
-    // Clear dismissed alerts when sensor returns to ok
     Object.values(state.sensors).forEach(s => {
         if (getStatus(s) === 'ok') state.dismissedAlerts.delete(s.id);
     });
@@ -2119,37 +2162,273 @@ function simulationTick() {
     updateAnalyticsCharts();
 }
 
-/* ============================================================
- * 9) BOOTSTRAP
- * ============================================================ */
-document.addEventListener('DOMContentLoaded', () => {
+/* * 9) AUTH
+ * */
 
-    // Nav links
+function login(username, password) {
+    const user = state.auth.users.find(
+        u => u.username.toLowerCase() === username.toLowerCase().trim() && u.password === password
+    );
+    if (!user) {
+        const errorEl = $('#loginError');
+        if (errorEl) {
+            errorEl.classList.remove('hidden');
+            $('#loginErrorText').textContent = 'Incorrect username or password.';
+        }
+        return false;
+    }
+    state.auth.isAuthenticated = true;
+    state.auth.currentUser = user;
+    state.role = user.role;
+    try { localStorage.setItem('agrisense_session', JSON.stringify(user)); } catch(_) {}
+    $('#loginOverlay').classList.add('hidden');
+    $('#appContainer').classList.remove('hidden');
+    $('#loginUsername').value = '';
+    $('#loginPassword').value = '';
+    $('#loginError').classList.add('hidden');
+    toast(`Welcome, ${user.name.split(' ')[0]}!`, 'success');
+    addActivity(`User ${user.username} logged in`, 'info');
+    renderAll();
+    setActiveView('dashboard');
+    return true;
+}
+
+function logout() {
+    const prev = state.auth.currentUser;
+    state.auth.isAuthenticated = false;
+    state.auth.currentUser = null;
+    state.role = 'farmer';
+    try { localStorage.removeItem('agrisense_session'); } catch(_) {}
+    $('#appContainer').classList.add('hidden');
+    $('#loginOverlay').classList.remove('hidden');
+    if (prev) addActivity(`User ${prev.username} logged out`, 'info');
+    toast('Logged out successfully', 'info');
+}
+
+function checkAuth() {
+    if (state.auth.isAuthenticated && state.auth.currentUser) {
+        $('#loginOverlay').classList.add('hidden');
+        $('#appContainer').classList.remove('hidden');
+        renderAll();
+        setActiveView('dashboard');
+    } else {
+        $('#appContainer').classList.add('hidden');
+        $('#loginOverlay').classList.remove('hidden');
+    }
+}
+
+function renderUsersView() {
+    const tbody = $('#usersTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    state.auth.users.forEach(u => {
+        const isSelf = state.auth.currentUser && state.auth.currentUser.username === u.username;
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-slate-100 hover:bg-slate-50/50 transition';
+        tr.innerHTML = `
+            <td class="px-6 py-4 font-medium text-slate-900">
+                <div class="flex items-center gap-2">
+                    <span>${u.name}</span>
+                    ${isSelf ? '<span class="text-[9px] bg-slate-100 text-slate-500 font-semibold px-1.5 py-0.5 rounded border border-slate-200 uppercase tracking-wider">You</span>' : ''}
+                </div>
+            </td>
+            <td class="px-6 py-4 text-slate-500 font-mono text-xs">${u.username}</td>
+            <td class="px-6 py-4">
+                <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${u.role === 'admin' ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' : 'bg-agri-50 text-agri-700 border border-agri-100'}">
+                    ${u.role === 'admin' ? 'Admin' : 'Farmer'}
+                </span>
+            </td>
+            <td class="px-6 py-4 text-right">
+                <div class="flex items-center justify-end gap-4">
+                    <button class="edit-user-btn text-slate-400 hover:text-agri-600 transition" data-username="${u.username}"><i class="fa-solid fa-pen-to-square"></i></button>
+                    ${!isSelf
+                        ? `<button class="delete-user-btn text-slate-400 hover:text-rose-600 transition" data-username="${u.username}"><i class="fa-solid fa-trash-can"></i></button>`
+                        : `<span class="text-slate-200 cursor-not-allowed" title="Cannot delete yourself"><i class="fa-solid fa-trash-can"></i></span>`
+                    }
+                </div>
+            </td>`;
+        tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('.edit-user-btn').forEach(btn =>
+        btn.addEventListener('click', () => openUserModal('edit', btn.dataset.username))
+    );
+    tbody.querySelectorAll('.delete-user-btn').forEach(btn =>
+        btn.addEventListener('click', () => {
+            if (confirm(`Delete user "${btn.dataset.username}"?`)) deleteUser(btn.dataset.username);
+        })
+    );
+}
+
+function openUserModal(mode = 'add', username = '') {
+    const modal = $('#userModal');
+    const form  = $('#userForm');
+    if (!modal || !form) return;
+    form.reset();
+    $('#userFormUsername').disabled = false;
+    $('#userFormPassword').required = true;
+    $('#userFormPasswordLabel').textContent = 'Password';
+    if (mode === 'add') {
+        $('#userModalTitle').textContent = 'Add New User';
+        $('#userFormMode').value = 'add';
+        $('#originalUsername').value = '';
+    } else {
+        const user = state.auth.users.find(u => u.username === username);
+        if (!user) return;
+        $('#userModalTitle').textContent = 'Edit User';
+        $('#userFormMode').value = 'edit';
+        $('#originalUsername').value = user.username;
+        $('#userFormName').value = user.name;
+        $('#userFormUsername').value = user.username;
+        $('#userFormUsername').disabled = true;
+        $('#userFormRole').value = user.role;
+        $('#userFormPassword').required = false;
+        $('#userFormPasswordLabel').textContent = 'New Password (leave blank to keep)';
+    }
+    modal.classList.remove('hidden');
+}
+
+function closeUserModal() { $('#userModal')?.classList.add('hidden'); }
+
+function saveUser(e) {
+    e.preventDefault();
+    const mode    = $('#userFormMode').value;
+    const origUser = $('#originalUsername').value;
+    const name    = $('#userFormName').value.trim();
+    const username = $('#userFormUsername').value.trim().toLowerCase();
+    const password = $('#userFormPassword').value;
+    const role    = $('#userFormRole').value;
+    if (mode === 'add') {
+        if (state.auth.users.some(u => u.username.toLowerCase() === username)) {
+            toast('Username already exists', 'error'); return;
+        }
+        state.auth.users.push({ username, name, role, password });
+        toast(`User "${name}" added`, 'success');
+        addActivity(`Created account for ${username}`, 'info');
+    } else {
+        const user = state.auth.users.find(u => u.username === origUser);
+        if (!user) return;
+        user.name = name; user.role = role;
+        if (password) user.password = password;
+        if (state.auth.currentUser?.username === origUser) {
+            state.auth.currentUser.name = name;
+            state.auth.currentUser.role = role;
+            state.role = role;
+            try { localStorage.setItem('agrisense_session', JSON.stringify(state.auth.currentUser)); } catch(_) {}
+        }
+        toast(`User "${name}" updated`, 'success');
+        addActivity(`Updated account for ${username}`, 'info');
+    }
+    try { localStorage.setItem('agrisense_users', JSON.stringify(state.auth.users)); } catch(_) {}
+    closeUserModal();
+    renderUsersView();
+    renderHeader();
+    renderRoleVisibility();
+}
+
+function deleteUser(username) {
+    const idx = state.auth.users.findIndex(u => u.username === username);
+    if (idx === -1) return;
+    const name = state.auth.users[idx].name;
+    state.auth.users.splice(idx, 1);
+    try { localStorage.setItem('agrisense_users', JSON.stringify(state.auth.users)); } catch(_) {}
+    toast(`User "${name}" deleted`, 'success');
+    addActivity(`Deleted account for ${username}`, 'warning');
+    renderUsersView();
+}
+
+/* * 10) BOOTSTRAP
+ * */
+
+document.addEventListener('DOMContentLoaded', () => {
     $$('.nav-link').forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
             setActiveView(link.dataset.view);
         });
     });
+    $('#loginForm')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        login($('#loginUsername').value, $('#loginPassword').value);
+    });
+    function switchAuthTab(tab) {
+        const isSignIn = tab === 'signin';
+        $('#tabSignIn').classList.toggle('bg-white',   isSignIn);
+        $('#tabSignIn').classList.toggle('text-emerald-700', isSignIn);
+        $('#tabSignIn').classList.toggle('shadow-sm',  isSignIn);
+        $('#tabSignIn').classList.toggle('text-slate-500', !isSignIn);
+        $('#tabRegister').classList.toggle('bg-white',   !isSignIn);
+        $('#tabRegister').classList.toggle('text-emerald-700', !isSignIn);
+        $('#tabRegister').classList.toggle('shadow-sm',  !isSignIn);
+        $('#tabRegister').classList.toggle('text-slate-500', isSignIn);
+        $('#panelSignIn').classList.toggle('hidden', !isSignIn);
+        $('#panelRegister').classList.toggle('hidden', isSignIn);
+        $('#loginError').classList.add('hidden');
+        $('#registerError').classList.add('hidden');
+        if (!isSignIn) {
+            $('#registerSuccess').classList.add('hidden');
+            $('#registerSuccess').classList.remove('flex');
+            $('#registerForm').classList.remove('hidden');
+        }
+    }
+    $('#tabSignIn')?.addEventListener('click',    () => switchAuthTab('signin'));
+    $('#tabRegister')?.addEventListener('click',  () => switchAuthTab('register'));
+    $('#goToSignIn')?.addEventListener('click',   () => switchAuthTab('signin'));
+    $('#registerForm')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name     = $('#regName').value.trim();
+        const username = $('#regUsername').value.trim().toLowerCase();
+        const password = $('#regPassword').value;
+        const confirm  = $('#regConfirm').value;
 
-    // Role toggle
-    $$('.toggle-btn').forEach(btn => {
-        btn.addEventListener('click', () => setRole(btn.dataset.role));
+        const showRegErr = (msg) => {
+            $('#registerErrorText').textContent = msg;
+            $('#registerError').classList.remove('hidden');
+        };
+        $('#registerError').classList.add('hidden');
+
+        if (name.length < 2) { showRegErr('Please enter your full name.'); return; }
+        if (username.length < 3) { showRegErr('Username must be at least 3 characters.'); return; }
+        if (!/^[a-z0-9_]+$/.test(username)) { showRegErr('Username may only contain letters, numbers, and underscores.'); return; }
+        if (state.auth.users.some(u => u.username === username)) { showRegErr('That username is already taken. Choose another.'); return; }
+        if (password.length < 6) { showRegErr('Password must be at least 6 characters.'); return; }
+        if (password !== confirm) { showRegErr('Passwords do not match.'); return; }
+
+        const newUser = { username, name, role: 'farmer', password };
+        state.auth.users.push(newUser);
+        try { localStorage.setItem('agrisense_users', JSON.stringify(state.auth.users)); } catch(_) {}
+        addActivity(`New account registered: ${username}`, 'info');
+        $('#registerSuccessMsg').textContent = `Welcome, ${name.split(' ')[0]}! You can now sign in with your credentials.`;
+        $('#registerForm').classList.add('hidden');
+        $('#registerSuccess').classList.remove('hidden');
+        $('#registerSuccess').classList.add('flex');
+        $('#loginUsername').value = username;
+        $('#loginPassword').value = '';
+        toast(`Account created for ${name.split(' ')[0]}!`, 'success');
     });
 
-    // Header actions
+    $('#fillAdminBtn')?.addEventListener('click', () => {
+        $('#loginUsername').value = 'admin';
+        $('#loginPassword').value = 'admin123';
+        toast('Admin credentials loaded', 'success');
+    });
+    $('#fillFarmerBtn')?.addEventListener('click', () => {
+        $('#loginUsername').value = 'farmer';
+        $('#loginPassword').value = 'farmer123';
+        toast('Farmer credentials loaded', 'success');
+    });
+    $('#headerLogoutBtn')?.addEventListener('click', logout);
+    $('#addUserBtn')?.addEventListener('click', () => openUserModal('add'));
+    $('#closeUserModal')?.addEventListener('click', closeUserModal);
+    $('#cancelUserForm')?.addEventListener('click', closeUserModal);
+    $('#userForm')?.addEventListener('submit', saveUser);
     $('#refreshBtn')?.addEventListener('click', refreshSensors);
     $('#exportBtn')?.addEventListener('click', exportReport);
     $('#manageDevicesBtn')?.addEventListener('click', () => setActiveView('sensors'));
-
-    // Activity clear
     $('#clearActivityBtn')?.addEventListener('click', () => {
         state.activity = [];
         renderActivity();
         toast('Activity log cleared', 'info');
     });
-
-    // Analytics range select
     $('#analyticsRange')?.addEventListener('change', (e) => {
         state.analyticsRange = e.target.value;
         updateAnalyticsCharts();
@@ -2159,11 +2438,6 @@ document.addEventListener('DOMContentLoaded', () => {
     $('#aiInsightsRefreshBtn')?.addEventListener('click', () => {
         refreshAiInsights({ silent: false });
     });
-
-    // Initial paint
-    renderAll();
-    setActiveView('dashboard');
-
-    // Live simulation
+    checkAuth();
     setInterval(simulationTick, 8000);
 });

@@ -1,7 +1,3 @@
-/**
- * Run: node scripts/verify-integrations.mjs
- * Env (optional): SUPABASE_URL, SUPABASE_ANON_KEY, GEMINI_API_KEY
- */
 const sbUrl = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const sbKey = process.env.SUPABASE_ANON_KEY || '';
 const geminiKey = process.env.GEMINI_API_KEY || '';

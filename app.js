@@ -228,7 +228,7 @@ try {
     state.supabase.logLimit = Math.min(500, Math.max(1, Number(sbLim) || 50));
   const geminiKey = localStorage.getItem("agrisense.gemini.apiKey");
   if (geminiKey) state.gemini.apiKey = geminiKey;
-} catch (_) {}
+} catch (_) { }
 
 (function bootstrapAuth() {
   const DEFAULT_USERS = [
@@ -530,78 +530,78 @@ function buildRecommendations() {
     const map = {
       soilMoisture: isLow
         ? {
-            title: "Water the plant now",
-            detail: `Add ~1.5 L/m² before noon to reach ${s.optimal.min + 5}% moisture.`,
-            icon: "fa-droplet",
-          }
+          title: "Water the plant now",
+          detail: `Add ~1.5 L/m² before noon to reach ${s.optimal.min + 5}% moisture.`,
+          icon: "fa-droplet",
+        }
         : {
-            title: "Pause irrigation",
-            detail: `Let moisture settle back toward ${s.optimal.max}%.`,
-            icon: "fa-droplet-slash",
-          },
+          title: "Pause irrigation",
+          detail: `Let moisture settle back toward ${s.optimal.max}%.`,
+          icon: "fa-droplet-slash",
+        },
       temperature: isLow
         ? {
-            title: "Warm the greenhouse",
-            detail: `Aim for ${s.optimal.min}–${s.optimal.max}°C.`,
-            icon: "fa-temperature-arrow-up",
-            action: {
-              id: "btnClimateUp",
-              label: "Run heaters",
-              icon: "fa-fire-flame-curved",
-            },
-          }
-        : {
-            title: "Cool the greenhouse",
-            detail: `Reduce to ${s.optimal.min}–${s.optimal.max}°C.`,
-            icon: "fa-temperature-arrow-down",
-            action: {
-              id: "btnClimateDown",
-              label: "Open vents",
-              icon: "fa-wind",
-            },
+          title: "Warm the greenhouse",
+          detail: `Aim for ${s.optimal.min}–${s.optimal.max}°C.`,
+          icon: "fa-temperature-arrow-up",
+          action: {
+            id: "btnClimateUp",
+            label: "Run heaters",
+            icon: "fa-fire-flame-curved",
           },
+        }
+        : {
+          title: "Cool the greenhouse",
+          detail: `Reduce to ${s.optimal.min}–${s.optimal.max}°C.`,
+          icon: "fa-temperature-arrow-down",
+          action: {
+            id: "btnClimateDown",
+            label: "Open vents",
+            icon: "fa-wind",
+          },
+        },
       humidity: isLow
         ? {
-            title: "Boost humidity",
-            detail: `Target: ${s.optimal.min}–${s.optimal.max}%.`,
-            icon: "fa-cloud-rain",
-            action: {
-              id: "btnMistersOn",
-              label: "Run misters",
-              icon: "fa-spray-can",
-            },
-          }
-        : {
-            title: "Reduce humidity",
-            detail: `Target: ${s.optimal.min}–${s.optimal.max}%.`,
-            icon: "fa-wind",
-            action: {
-              id: "btnMistersOff",
-              label: "Ventilate",
-              icon: "fa-wind",
-            },
+          title: "Boost humidity",
+          detail: `Target: ${s.optimal.min}–${s.optimal.max}%.`,
+          icon: "fa-cloud-rain",
+          action: {
+            id: "btnMistersOn",
+            label: "Run misters",
+            icon: "fa-spray-can",
           },
+        }
+        : {
+          title: "Reduce humidity",
+          detail: `Target: ${s.optimal.min}–${s.optimal.max}%.`,
+          icon: "fa-wind",
+          action: {
+            id: "btnMistersOff",
+            label: "Ventilate",
+            icon: "fa-wind",
+          },
+        },
       light: isLow
         ? {
-            title: "Increase light",
-            detail: `Optimal: ${formatNumber(s.optimal.min)}–${formatNumber(s.optimal.max)} lux.`,
+          title: "Increase light",
+          detail: `Optimal: ${formatNumber(s.optimal.min)}–${formatNumber(s.optimal.max)} lux.`,
+          icon: "fa-lightbulb",
+          action: {
+            id: "btnLightsOn",
+            label: "Turn on grow lights",
             icon: "fa-lightbulb",
-            action: {
-              id: "btnLightsOn",
-              label: "Turn on grow lights",
-              icon: "fa-lightbulb",
-            },
-          }
-        : {
-            title: "Reduce light",
-            detail: `Optimal: ${formatNumber(s.optimal.min)}–${formatNumber(s.optimal.max)} lux.`,
-            icon: "fa-cloud",
-            action: {
-              id: "btnLightsOff",
-              label: "Deploy shade cloth",
-              icon: "fa-umbrella",
-            },
           },
+        }
+        : {
+          title: "Reduce light",
+          detail: `Optimal: ${formatNumber(s.optimal.min)}–${formatNumber(s.optimal.max)} lux.`,
+          icon: "fa-cloud",
+          action: {
+            id: "btnLightsOff",
+            label: "Deploy shade cloth",
+            icon: "fa-umbrella",
+          },
+        },
     };
 
     const r = map[s.id];
@@ -660,15 +660,14 @@ function renderRecommendations() {
                 <p class="text-xs text-amber-700 mt-1">${top.detail}</p>
             </div>
         </div>
-        ${
-          top.action
-            ? `<button id="${top.action.id}"
+        ${top.action
+      ? `<button id="${top.action.id}"
                     class="mt-4 w-full bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium py-2 rounded-lg flex items-center justify-center gap-2 transition">
                 <i class="fa-solid ${top.action.icon} text-xs"></i>
                 <span>${top.action.label}</span>
             </button>`
-            : ""
-        }
+      : ""
+    }
         ${recs.length > 1 ? `<p class="mt-3 text-[11px] text-amber-700">+${recs.length - 1} more recommendation${recs.length > 2 ? "s" : ""} — see <a href="#" data-go-view="alerts" class="underline font-medium">Alerts</a>.</p>` : ""}
     `;
   if (top.action) {
@@ -1035,11 +1034,10 @@ function renderSettings() {
                            class="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-agri-500/30 focus:border-agri-500 disabled:bg-slate-50 disabled:text-slate-500" />
                 </div>
                 <div class="sm:col-span-2">
-                    ${
-                      dev.enabled
-                        ? '<button id="deviceDisconnectBtn" class="w-full text-sm px-3 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-medium">Disconnect</button>'
-                        : `<button id="deviceConnectBtn" ${isAdmin ? "" : "disabled"} class="w-full text-sm px-3 py-2 rounded-lg bg-agri-600 hover:bg-agri-700 text-white font-medium disabled:opacity-60 disabled:cursor-not-allowed">Connect</button>`
-                    }
+                    ${dev.enabled
+      ? '<button id="deviceDisconnectBtn" class="w-full text-sm px-3 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-medium">Disconnect</button>'
+      : `<button id="deviceConnectBtn" ${isAdmin ? "" : "disabled"} class="w-full text-sm px-3 py-2 rounded-lg bg-agri-600 hover:bg-agri-700 text-white font-medium disabled:opacity-60 disabled:cursor-not-allowed">Connect</button>`
+    }
                 </div>
             </div>
 
@@ -1058,8 +1056,8 @@ function renderSettings() {
     sb.rows.length === 0
       ? `<tr><td colspan="7" class="px-4 py-6 text-center text-sm text-slate-400">No rows yet — save URL/key and click <strong>Load from Supabase</strong>.</td></tr>`
       : sb.rows
-          .map(
-            (r) => `
+        .map(
+          (r) => `
             <tr class="border-t border-slate-100 hover:bg-slate-50/60 text-sm">
                 <td class="px-3 py-2 font-mono text-xs text-slate-600">${r.id ?? "—"}</td>
                 <td class="px-3 py-2 text-xs text-slate-700">${r.recorded_at ? new Date(r.recorded_at).toLocaleString() : "—"}</td>
@@ -1070,8 +1068,8 @@ function renderSettings() {
                 <td class="px-3 py-2">${r.lux != null ? Math.round(r.lux) : "—"}</td>
             </tr>
         `,
-          )
-          .join("");
+        )
+        .join("");
 
   const supabasePanel = `
         <div class="bg-white rounded-xl border border-slate-200 shadow-card mb-5">
@@ -1080,11 +1078,10 @@ function renderSettings() {
                     <p class="text-sm font-semibold text-slate-800">Supabase cloud log</p>
                     <p class="text-xs text-slate-500 mt-0.5">Same <code class="font-mono text-[11px]">sensor_readings</code> table the ESP32 writes to (REST).</p>
                 </div>
-                ${
-                  sb.loading
-                    ? '<span class="text-[11px] text-amber-700 bg-amber-100 px-2 py-1 rounded-full"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Loading…</span>'
-                    : '<span class="text-[11px] text-slate-500 bg-slate-100 px-2 py-1 rounded-full"><i class="fa-solid fa-database mr-1"></i>PostgREST</span>'
-                }
+                ${sb.loading
+      ? '<span class="text-[11px] text-amber-700 bg-amber-100 px-2 py-1 rounded-full"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Loading…</span>'
+      : '<span class="text-[11px] text-slate-500 bg-slate-100 px-2 py-1 rounded-full"><i class="fa-solid fa-database mr-1"></i>PostgREST</span>'
+    }
             </div>
             <div class="px-6 py-4 grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                 <div class="sm:col-span-5">
@@ -1175,11 +1172,10 @@ function renderSettings() {
                     <p class="text-sm font-semibold text-slate-800">Threshold configuration</p>
                     <p class="text-xs text-slate-500 mt-0.5">Optimal ranges that drive sensor status and alerts.</p>
                 </div>
-                ${
-                  isAdmin
-                    ? '<span class="text-[11px] text-agri-700 bg-agri-100 px-2 py-1 rounded-full"><i class="fa-solid fa-unlock mr-1"></i>Admin mode</span>'
-                    : '<span class="text-[11px] text-slate-500 bg-slate-100 px-2 py-1 rounded-full"><i class="fa-solid fa-lock mr-1"></i>Read-only as Farmer</span>'
-                }
+                ${isAdmin
+      ? '<span class="text-[11px] text-agri-700 bg-agri-100 px-2 py-1 rounded-full"><i class="fa-solid fa-unlock mr-1"></i>Admin mode</span>'
+      : '<span class="text-[11px] text-slate-500 bg-slate-100 px-2 py-1 rounded-full"><i class="fa-solid fa-lock mr-1"></i>Read-only as Farmer</span>'
+    }
             </div>
             <div class="px-6 py-3">${rows}</div>
             <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 rounded-b-xl">
@@ -1234,7 +1230,7 @@ function renderSettings() {
         String(state.supabase.logLimit),
       );
       initSupabaseClient();
-    } catch (_) {}
+    } catch (_) { }
   };
 
   supabaseUrlEl?.addEventListener("input", () => {
@@ -1264,7 +1260,7 @@ function renderSettings() {
     state.gemini.apiKey = el ? el.value.trim() : "";
     try {
       localStorage.setItem("agrisense.gemini.apiKey", state.gemini.apiKey);
-    } catch (_) {}
+    } catch (_) { }
     state.aiInsights.autoFetchAttempted = false;
     state.aiInsights.geminiItems = null;
     state.aiInsights.error = null;
@@ -1541,6 +1537,25 @@ async function fetchGeminiInsightsWithModel(apiKey, model) {
       temperature: 0.35,
       maxOutputTokens: 2048,
       responseMimeType: "application/json",
+      responseSchema: {
+        type: "OBJECT",
+        properties: {
+          insights: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                priority: { type: "INTEGER" },
+                title: { type: "STRING" },
+                detail: { type: "STRING" },
+                icon: { type: "STRING" }
+              },
+              required: ["priority", "title", "detail", "icon"]
+            }
+          }
+        },
+        required: ["insights"]
+      }
     },
   };
 
@@ -1577,7 +1592,13 @@ async function fetchGeminiInsightsWithModel(apiKey, model) {
 
   let data;
   try {
-    data = JSON.parse(text);
+    let cleanText = text.trim();
+    if (cleanText.startsWith("```")) {
+      cleanText = cleanText.replace(/^```[a-zA-Z0-9-]*\s*/, "");
+      cleanText = cleanText.replace(/\s*```$/, "");
+      cleanText = cleanText.trim();
+    }
+    data = JSON.parse(cleanText);
   } catch {
     throw new Error("Model did not return valid JSON");
   }
@@ -2061,6 +2082,7 @@ function renderAll() {
   safe(renderRoleBanner);
   safe(renderConnectionIndicator);
   safe(updateAnalyticsCharts);
+  safe(updateDeviceConnectionOverlay);
 }
 
 /* * 4b) IoT DEVICE CONNECTION (HTTP REST polling)
@@ -2141,6 +2163,7 @@ async function pollDevice() {
     renderHeader();
     renderConnectionIndicator();
     updateAnalyticsCharts();
+    updateDeviceConnectionOverlay();
 
     if (wasError) {
       addActivity("Device connection restored", "ok");
@@ -2153,6 +2176,7 @@ async function pollDevice() {
       state.device.consecutiveErrors > 3 ? "error" : "connecting";
     renderConnectionIndicator();
     renderAiInsights();
+    updateDeviceConnectionOverlay();
 
     if (state.device.consecutiveErrors === 4) {
       toast(`Device polling failing: ${state.device.lastError}`, "warning");
@@ -2177,12 +2201,13 @@ function connectDevice() {
       "agrisense.device.pollIntervalMs",
       String(state.device.pollIntervalMs),
     );
-  } catch (_) {}
+  } catch (_) { }
 
   addActivity(`Connecting to device at ${state.device.endpoint}`, "info");
   toast("Connecting to device…", "info");
   renderConnectionIndicator();
   renderSettings();
+  updateDeviceConnectionOverlay();
 
   pollDevice();
   state.device.pollerId = setInterval(pollDevice, state.device.pollIntervalMs);
@@ -2205,6 +2230,7 @@ function disconnectDevice(silent = false) {
   }
   renderConnectionIndicator();
   renderSettings();
+  updateDeviceConnectionOverlay();
 }
 
 // ==========================================================================
@@ -2234,7 +2260,7 @@ function initSupabaseClient() {
       renderRealtimeIndicator();
 
       state.supabase.client = supabase.createClient(cleanUrl, cleanKey);
-      
+
       state.supabase.channel = state.supabase.client
         .channel("live-sensor-readings")
         .on(
@@ -2257,7 +2283,7 @@ function initSupabaseClient() {
             state.supabase.realtimeStatus = "error";
           }
           renderRealtimeIndicator();
-          
+
           const activeView = $(".nav-link.active")?.dataset.view;
           if (activeView === "database") {
             renderDatabaseView();
@@ -2341,7 +2367,7 @@ function handleIncomingRealtimeReading(row) {
   toast(`Real-time update: Temp ${row.temperature}°C · Soil ${row.soil_moisture}%`, "success");
 
   applySupabaseLatestToSensors();
-  
+
   renderSensorCards();
   renderPlantStatus();
   renderRecommendations();
@@ -2403,13 +2429,13 @@ function renderDatabaseView() {
     const validTemp = sb.rows.map(r => r.temperature).filter(v => typeof v === 'number' && !isNaN(v));
     const validHumid = sb.rows.map(r => r.humidity).filter(v => typeof v === 'number' && !isNaN(v));
 
-    if (validMoisture.length) avgMoisture = `${(validMoisture.reduce((a,b)=>a+b,0)/validMoisture.length).toFixed(1)}%`;
-    if (validTemp.length) avgTemp = `${(validTemp.reduce((a,b)=>a+b,0)/validTemp.length).toFixed(1)}°C`;
-    if (validHumid.length) avgHumidity = `${(validHumid.reduce((a,b)=>a+b,0)/validHumid.length).toFixed(1)}%`;
+    if (validMoisture.length) avgMoisture = `${(validMoisture.reduce((a, b) => a + b, 0) / validMoisture.length).toFixed(1)}%`;
+    if (validTemp.length) avgTemp = `${(validTemp.reduce((a, b) => a + b, 0) / validTemp.length).toFixed(1)}°C`;
+    if (validHumid.length) avgHumidity = `${(validHumid.reduce((a, b) => a + b, 0) / validHumid.length).toFixed(1)}%`;
   }
 
   let filteredRows = [...sb.rows];
-  
+
   if (dbFilterSource !== "all") {
     filteredRows = filteredRows.filter(r => {
       const devId = (r.device_id || "").toLowerCase();
@@ -2422,7 +2448,7 @@ function renderDatabaseView() {
 
   if (dbSearchQuery) {
     const q = dbSearchQuery.toLowerCase();
-    filteredRows = filteredRows.filter(r => 
+    filteredRows = filteredRows.filter(r =>
       (r.device_id || "").toLowerCase().includes(q) ||
       String(r.id).includes(q) ||
       (r.soil_moisture != null && String(r.soil_moisture).includes(q)) ||
@@ -2433,7 +2459,7 @@ function renderDatabaseView() {
   const totalFiltered = filteredRows.length;
   const totalPages = Math.max(1, Math.ceil(totalFiltered / dbRowsPerPage));
   dbCurrentPage = clamp(dbCurrentPage, 1, totalPages);
-  
+
   const startIdx = (dbCurrentPage - 1) * dbRowsPerPage;
   const paginatedRows = filteredRows.slice(startIdx, startIdx + dbRowsPerPage);
 
@@ -2444,13 +2470,12 @@ function renderDatabaseView() {
           <td class="px-4 py-3 font-mono text-xs text-slate-600">${r.id ?? "—"}</td>
           <td class="px-4 py-3 text-xs text-slate-700">${r.recorded_at ? new Date(r.recorded_at).toLocaleString() : "—"}</td>
           <td class="px-4 py-3 text-xs">
-            <span class="px-2 py-0.5 rounded-full font-semibold text-[10px] uppercase tracking-wider ${
-              (r.device_id || "").toLowerCase().includes("esp32") 
-                ? "bg-agri-100 text-agri-700" 
-                : (r.device_id || "").toLowerCase().includes("test") || (r.device_id || "").toLowerCase().includes("operator")
-                  ? "bg-indigo-100 text-indigo-700" 
-                  : "bg-slate-100 text-slate-600"
-            }">${r.device_id ?? "SIMULATOR"}</span>
+            <span class="px-2 py-0.5 rounded-full font-semibold text-[10px] uppercase tracking-wider ${(r.device_id || "").toLowerCase().includes("esp32")
+        ? "bg-agri-100 text-agri-700"
+        : (r.device_id || "").toLowerCase().includes("test") || (r.device_id || "").toLowerCase().includes("operator")
+          ? "bg-indigo-100 text-indigo-700"
+          : "bg-slate-100 text-slate-600"
+      }">${r.device_id ?? "SIMULATOR"}</span>
           </td>
           <td class="px-4 py-3 font-medium text-slate-800">${r.soil_moisture ?? "—"}%</td>
           <td class="px-4 py-3 text-slate-800">${r.temperature != null ? Number(r.temperature).toFixed(1) : "—"}°C</td>
@@ -2699,7 +2724,7 @@ async function seedSupabaseHistoricalData(daysCount = 7) {
 
   const readings = [];
   const now = new Date();
-  const totalPoints = daysCount * 12; 
+  const totalPoints = daysCount * 12;
   for (let i = totalPoints; i >= 0; i--) {
     const time = new Date(now.getTime() - i * 2 * 60 * 60 * 1000);
     const hour = time.getHours();
@@ -2799,12 +2824,12 @@ async function submitManualFormReading() {
 
     toast("Custom sample successfully uploaded!", "success");
     addActivity(`Uploaded manual sample from ${devId}`, "info");
-    
+
     $("#mFormMoisture").value = Math.round(20 + Math.random() * 20);
     $("#mFormTemp").value = (24 + Math.random() * 6).toFixed(1);
     $("#mFormHumidity").value = (50 + Math.random() * 20).toFixed(1);
     $("#mFormLux").value = Math.round(5000 + Math.random() * 15000);
-    
+
     await loadSupabaseReadings();
   } catch (err) {
     console.error(err);
@@ -2958,7 +2983,7 @@ async function loadSupabaseReadings() {
     state.supabase.loading = false;
     renderSettings();
     renderAiInsights();
-    
+
     const activeView = $(".nav-link.active")?.dataset.view;
     if (activeView === "database") {
       renderDatabaseView();
@@ -3016,7 +3041,7 @@ async function insertSupabaseTestRow() {
       if (!res.ok)
         throw new Error(formatSupabaseError(text || `HTTP ${res.status}`));
     }
-    
+
     toast("Test row inserted", "success");
     addActivity("Inserted Supabase test row from web app", "info");
     await loadSupabaseReadings();
@@ -3198,8 +3223,64 @@ const viewMeta = {
   },
 };
 
+function updateDeviceConnectionOverlay() {
+  const viewsToBlock = ["dashboard", "sensors", "alerts", "analytics", "database"];
+  const isConnected = state.device.status === "connected";
+
+  viewsToBlock.forEach((viewName) => {
+    const section = document.getElementById(`view-${viewName}`);
+    if (!section) return;
+
+    let overlay = section.querySelector(".device-disconnected-overlay");
+
+    if (isConnected) {
+      if (overlay) {
+        overlay.remove();
+      }
+    } else {
+      if (!overlay) {
+        section.style.position = "relative";
+        overlay = document.createElement("div");
+        overlay.className = "device-disconnected-overlay absolute inset-0 bg-slate-900/40 backdrop-blur-md z-40 flex items-center justify-center p-8 transition-all duration-300";
+        overlay.innerHTML = `
+          <div class="max-w-lg w-full bg-white/90 backdrop-blur-xl rounded-3xl border border-slate-200/80 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.15)] p-8 text-center relative overflow-hidden">
+            <!-- Ambient glowing blobs -->
+            <div class="absolute w-64 h-64 rounded-full bg-rose-500/10 blur-[60px] -top-10 -right-10 pointer-events-none"></div>
+            <div class="absolute w-64 h-64 rounded-full bg-amber-500/5 blur-[80px] -bottom-10 -left-10 pointer-events-none"></div>
+
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-rose-500 to-amber-500 flex items-center justify-center mx-auto mb-6 shadow-[0_8px_20px_-6px_rgba(239,68,68,0.4)]">
+              <i class="fa-solid fa-plug-circle-xmark text-white text-2xl animate-pulse"></i>
+            </div>
+            
+            <h3 class="text-xl font-bold text-slate-900 tracking-tight mb-2">Arduino Gateway Offline</h3>
+            <p class="text-sm text-slate-500 leading-relaxed mb-6">
+              AgriSense requires a live connection to your ESP32 Arduino gateway to view sensor data, diagnostics, and analytics. Please ensure your device is powered on, connected to the network, and configured under Settings.
+            </p>
+
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button onclick="setActiveView('settings')" class="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-agri-600 to-agri-700 hover:from-agri-700 hover:to-agri-800 text-white rounded-2xl text-sm font-semibold shadow-[0_8px_20px_-4px_rgba(16,185,129,0.3)] transition duration-200 active:scale-[0.98]">
+                Configure Gateway Settings
+              </button>
+              <button onclick="connectDevice()" class="w-full sm:w-auto px-6 py-3 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-2xl text-sm font-semibold transition active:scale-[0.98]">
+                Try Reconnecting
+              </button>
+            </div>
+
+            <div class="mt-6 pt-6 border-t border-slate-100 flex items-center justify-center gap-6 text-xs text-slate-400 font-medium">
+              <span class="flex items-center gap-1.5"><i class="fa-solid fa-microchip"></i> ESP32 Gateway</span>
+              <span class="flex items-center gap-1.5"><i class="fa-solid fa-chart-line"></i> Analytics Locked</span>
+            </div>
+          </div>
+        `;
+        section.appendChild(overlay);
+      }
+    }
+  });
+}
+
 function setActiveView(viewName) {
   if (!viewMeta[viewName]) viewName = "dashboard";
+  updateDeviceConnectionOverlay();
   $$(".nav-link").forEach((link) =>
     link.classList.toggle("active", link.dataset.view === viewName),
   );
@@ -3308,7 +3389,7 @@ function initRadarChart() {
 
 function getBarData(range) {
   const rows = state.supabase.rows;
-  
+
   if (!rows || rows.length < 5) {
     if (range === "30d")
       return {
@@ -3347,7 +3428,7 @@ function getBarData(range) {
   if (range === "30d") {
     const weeks = [[], [], [], []];
     const now = new Date();
-    
+
     readings.forEach(r => {
       const diffDays = (now - r.recorded_at) / (1000 * 60 * 60 * 24);
       if (diffDays <= 30) {
@@ -3367,7 +3448,7 @@ function getBarData(range) {
   if (range === "season") {
     const months = {};
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    
+
     readings.forEach(r => {
       const m = monthNames[r.recorded_at.getMonth()];
       if (!months[m]) months[m] = [];
@@ -3494,6 +3575,9 @@ function updateAnalyticsCharts() {
  * */
 
 function simulationTick() {
+  // Halt simulated data generation completely to ensure only real connection data is displayed
+  return;
+
   if (state.device.enabled && state.device.status === "connected") return;
 
   Object.values(state.sensors).forEach((s) => {
@@ -3538,7 +3622,7 @@ function login(username, password) {
   state.role = user.role;
   try {
     localStorage.setItem("agrisense_session", JSON.stringify(user));
-  } catch (_) {}
+  } catch (_) { }
   $("#loginOverlay").classList.add("hidden");
   $("#appContainer").classList.remove("hidden");
   $("#loginUsername").value = "";
@@ -3568,7 +3652,7 @@ function logout() {
   state.role = "farmer";
   try {
     localStorage.removeItem("agrisense_session");
-  } catch (_) {}
+  } catch (_) { }
   $("#appContainer").classList.add("hidden");
   $("#loginOverlay").classList.remove("hidden");
   if (prev) addActivity(`User ${prev.username} logged out`, "info");
@@ -3614,11 +3698,10 @@ function renderUsersView() {
             <td class="px-6 py-4 text-right">
                 <div class="flex items-center justify-end gap-4">
                     <button class="edit-user-btn text-slate-400 hover:text-agri-600 transition" data-username="${u.username}"><i class="fa-solid fa-pen-to-square"></i></button>
-                    ${
-                      !isSelf
-                        ? `<button class="delete-user-btn text-slate-400 hover:text-rose-600 transition" data-username="${u.username}"><i class="fa-solid fa-trash-can"></i></button>`
-                        : `<span class="text-slate-200 cursor-not-allowed" title="Cannot delete yourself"><i class="fa-solid fa-trash-can"></i></span>`
-                    }
+                    ${!isSelf
+        ? `<button class="delete-user-btn text-slate-400 hover:text-rose-600 transition" data-username="${u.username}"><i class="fa-solid fa-trash-can"></i></button>`
+        : `<span class="text-slate-200 cursor-not-allowed" title="Cannot delete yourself"><i class="fa-solid fa-trash-can"></i></span>`
+      }
                 </div>
             </td>`;
     tbody.appendChild(tr);
@@ -3702,14 +3785,14 @@ function saveUser(e) {
           "agrisense_session",
           JSON.stringify(state.auth.currentUser),
         );
-      } catch (_) {}
+      } catch (_) { }
     }
     toast(`User "${name}" updated`, "success");
     addActivity(`Updated account for ${username}`, "info");
   }
   try {
     localStorage.setItem("agrisense_users", JSON.stringify(state.auth.users));
-  } catch (_) {}
+  } catch (_) { }
   closeUserModal();
   renderUsersView();
   renderHeader();
@@ -3723,7 +3806,7 @@ function deleteUser(username) {
   state.auth.users.splice(idx, 1);
   try {
     localStorage.setItem("agrisense_users", JSON.stringify(state.auth.users));
-  } catch (_) {}
+  } catch (_) { }
   toast(`User "${name}" deleted`, "success");
   addActivity(`Deleted account for ${username}`, "warning");
   renderUsersView();
@@ -3810,7 +3893,7 @@ document.addEventListener("DOMContentLoaded", () => {
     state.auth.users.push(newUser);
     try {
       localStorage.setItem("agrisense_users", JSON.stringify(state.auth.users));
-    } catch (_) {}
+    } catch (_) { }
     addActivity(`New account registered: ${username}`, "info");
     $("#registerSuccessMsg").textContent =
       `Welcome, ${name.split(" ")[0]}! You can now sign in with your credentials.`;

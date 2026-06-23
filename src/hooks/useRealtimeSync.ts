@@ -11,7 +11,7 @@ interface SensorReading {
   soil_moisture: number | null;
   temperature: number | null;
   humidity: number | null;
-  light_lux: number | null;
+  lux: number | null;
 }
 
 export function useRealtimeSync() {
@@ -72,7 +72,7 @@ export function useRealtimeSync() {
           if (row.soil_moisture != null) updateSensor('soilMoisture', row.soil_moisture);
           if (row.temperature != null) updateSensor('temperature', row.temperature);
           if (row.humidity != null) updateSensor('humidity', row.humidity);
-          if (row.light_lux != null || (row as any).lux != null) updateSensor('light', row.light_lux ?? (row as any).lux);
+          if (row.lux != null) updateSensor('light', row.lux);
 
           useStore.setState({ lastSync: new Date() });
           addActivity(

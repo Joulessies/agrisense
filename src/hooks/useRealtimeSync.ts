@@ -75,10 +75,7 @@ export function useRealtimeSync() {
           if (row.lux != null) updateSensor('light', row.lux);
 
           useStore.setState({ lastSync: new Date() });
-          addActivity(
-            `Live update from ${row.device_id ?? 'sensor'}: moisture ${row.soil_moisture ?? '—'}%, temp ${row.temperature ?? '—'}°C`,
-            'info'
-          );
+          // Note: Alert processing and node tracking is now completely handled by the Database Trigger!
         }
       )
       .subscribe((status) => {

@@ -23,8 +23,6 @@ export function AuthOverlay({ initialIsRegistering = false }: { initialIsRegiste
     setLoading(true);
 
     try {
-      // MOCK LOGIN BYPASS: Just set the session directly in Zustand
-      // If registering, use the selected role. If signing in, guess from the email or default to farmer.
       const assignedRole = isRegistering ? role : (email.toLowerCase().includes('admin') ? 'admin' : 'farmer');
       const assignedName = name || email.split('@')[0] || 'User';
 
@@ -34,7 +32,6 @@ export function AuthOverlay({ initialIsRegistering = false }: { initialIsRegiste
         name: assignedName,
         role: assignedRole,
       });
-      // AppWrapper will detect isAuthenticated = true and unmount AuthOverlay
     } catch (err: any) {
       const status = err?.status ?? err?.code;
       if (status === 400 || status === 401 || err?.message?.toLowerCase().includes("invalid login")) {

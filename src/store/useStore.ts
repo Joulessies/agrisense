@@ -173,9 +173,8 @@ export const useStore = create<AppState>((set) => ({
       const newActivity = [{ time: timeStr, text, tone }, ...state.activity].slice(0, 30);
       return { activity: newActivity };
     });
-    // Insert to DB
-    await supabase.from('activity_logs').insert([{ time: timeStr, text, tone }]);
-  },
+    // Purely local optimistic UI update for any manual alerts.
+    // DB-generated alerts arrive via Realtime instead.
   setSession: (user) => set((state) => ({
     role: user.role || "farmer",
     auth: {

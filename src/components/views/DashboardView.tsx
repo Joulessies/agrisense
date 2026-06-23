@@ -11,10 +11,10 @@ import { WeatherCard } from "@/components/ui/WeatherCard";
 import { AiInsightsCard } from "@/components/ui/AiInsightsCard";
 
 export function DashboardView() {
-  const { auth, role, sensors, plant, nodes } = useStore();
+  const { auth, role, sensors, plant, nodes, profiles } = useStore();
 
   const userName = auth.currentUser?.name?.split(" ")[0] || "User";
-  const userCount = 1; // TODO: Fetch real user count from DB
+  const userCount = profiles.length;
   const nodeCount = nodes.length;
   const activeNodes = nodes.filter((n) => n.online).length;
 

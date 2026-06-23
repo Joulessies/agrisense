@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { useUser, useClerk } from "@clerk/nextjs";
+import React, { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { useStore } from "@/store/useStore";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
-import { supabase } from "@/lib/supabase";
+import { AuthOverlay } from "@/components/auth/AuthOverlay";
 
 function AuthenticatedShell({ children }: { children: React.ReactNode }) {
   // Mount realtime sync only when the user is logged in
@@ -13,47 +13,65 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
 }
 
 export function AppWrapper({ children }: { children: React.ReactNode }) {
-  const { user, isLoaded, isSignedIn } = useUser();
-  const { setSession, clearSession } = useStore();
+  const setSession = useStore((state) => state.setSession);
+  const clearSession = useStore((state) => state.clearSession);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isSignedIn, setIsSignedIn] = useState(false);
 
   useEffect(() => {
-    if (!isLoaded) return;
-
-    if (isSignedIn && user) {
-      // Push Clerk user info into the Zustand store
-      setSession({
-        id: user.id,
-        email: user.primaryEmailAddress?.emailAddress ?? "",
-        name: user.fullName ?? user.firstName ?? "User",
-        role: (user.publicMetadata?.role as string) ?? "farmer",
-      });
-
-      // Auto-create a Supabase profile row if one doesn't exist yet
-      const email = user.primaryEmailAddress?.emailAddress ?? "";
-      const name = user.fullName ?? user.firstName ?? "User";
-      supabase
-        .from("profiles")
-        .upsert(
-          { id: user.id, name, role: (user.publicMetadata?.role as string) ?? "farmer" },
-          { onConflict: "id", ignoreDuplicates: true }
-        )
-        .then(({ error }) => {
-          if (error) console.warn("Profile upsert error:", error.message);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const u = session.user;
+        setSession({
+          id: u.id,
+          email: u.email ?? "",
+          name: u.user_metadata?.name ?? u.email?.split("@")[0] ?? "User",
+          role: u.user_metadata?.role ?? "farmer",
         });
-    } else {
-      clearSession();
-    }
-  }, [isLoaded, isSignedIn, user, setSession, clearSession]);
+        setIsSignedIn(true);
+      } else {
+        clearSession();
+        setIsSignedIn(false);
+      }
+      setIsLoaded(true);
+    });
 
-  // Wait for Clerk to finish loading
+    // Listen for auth state changes (sign-in / sign-out)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const u = session.user;
+        setSession({
+          id: u.id,
+          email: u.email ?? "",
+          name: u.user_metadata?.name ?? u.email?.split("@")[0] ?? "User",
+          role: u.user_metadata?.role ?? "farmer",
+        });
+        setIsSignedIn(true);
+      } else {
+        clearSession();
+        setIsSignedIn(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [setSession, clearSession]);
+
+  // Show a spinner while Supabase resolves the initial session
   if (!isLoaded) {
-    return null;
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-agri-500 to-agri-600 flex items-center justify-center shadow-md animate-pulse">
+            <i className="fa-solid fa-leaf text-white text-lg"></i>
+          </div>
+          <p className="text-sm text-slate-500">Loading AgriSense…</p>
+        </div>
+      </div>
+    );
   }
 
-  if (!isSignedIn) {
-    // Clerk middleware will redirect to /sign-in, but show nothing in the meantime
-    return null;
-  }
+  // Show sign-in modal if not authenticated
+  if (!isSignedIn) return <AuthOverlay />;
 
   return <AuthenticatedShell>{children}</AuthenticatedShell>;
 }

@@ -28,16 +28,17 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Never cache API calls, Supabase, or external resources
   if (
     url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/_next/') ||
+    url.pathname.startsWith('/__') ||
     url.hostname.includes('supabase') ||
     url.hostname.includes('openweathermap') ||
     url.hostname.includes('googleapis') ||
     url.hostname.includes('cdnjs') ||
     request.method !== 'GET'
   ) {
-    return; // fall through to network
+    return;
   }
 
   event.respondWith(
@@ -45,7 +46,6 @@ self.addEventListener('fetch', (event) => {
       if (cached) return cached;
 
       return fetch(request).then((networkRes) => {
-        // Cache successful navigation and static responses
         if (networkRes.ok && (request.destination === 'document' || request.destination === 'script' || request.destination === 'style')) {
           const clone = networkRes.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));

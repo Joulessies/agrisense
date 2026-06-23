@@ -1,12 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 
-export const defaultThresholds = {
-  soilMoisture: { min: 20, max: 40 },
-  temperature: { min: 25, max: 32 },
-  humidity: { min: 40, max: 70 },
-  light: { min: 10000, max: 20000 },
-};
 
 export type Role = "farmer" | "admin";
 export type AlertTone = "ok" | "info" | "warning" | "critical";
@@ -44,6 +38,7 @@ export interface NodeItem {
 export interface ProfileItem {
   id: string;
   name: string;
+  email: string;
   role: string;
   status: string;
 }
@@ -81,6 +76,7 @@ interface AppState {
   setProfiles: (profiles: ProfileItem[]) => void;
   setPlant: (plant: { age: number; harvestAge: number }) => void;
   setActivity: (activity: ActivityItem[]) => void;
+  setThresholds: (thresholds: Array<{ id: string; optimal_min: number; optimal_max: number }>) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -98,7 +94,7 @@ export const useStore = create<AppState>((set) => ({
       min: 0,
       max: 100,
       decimals: 0,
-      optimal: { ...defaultThresholds.soilMoisture },
+      optimal: { min: 20, max: 40 },
       icon: "fa-droplet",
       iconBg: "bg-amber-50",
       iconColor: "text-amber-500",
@@ -112,7 +108,7 @@ export const useStore = create<AppState>((set) => ({
       min: 0,
       max: 50,
       decimals: 0,
-      optimal: { ...defaultThresholds.temperature },
+      optimal: { min: 25, max: 32 },
       icon: "fa-temperature-half",
       iconBg: "bg-agri-50",
       iconColor: "text-agri-600",
@@ -126,7 +122,7 @@ export const useStore = create<AppState>((set) => ({
       min: 0,
       max: 100,
       decimals: 0,
-      optimal: { ...defaultThresholds.humidity },
+      optimal: { min: 40, max: 70 },
       icon: "fa-cloud",
       iconBg: "bg-sky-50",
       iconColor: "text-sky-500",
@@ -140,7 +136,7 @@ export const useStore = create<AppState>((set) => ({
       min: 0,
       max: 25000,
       decimals: 0,
-      optimal: { ...defaultThresholds.light },
+      optimal: { min: 10000, max: 20000 },
       icon: "fa-sun",
       iconBg: "bg-yellow-50",
       iconColor: "text-yellow-500",
@@ -202,12 +198,23 @@ export const useStore = create<AppState>((set) => ({
     }
   })),
   logout: async () => {
-    // Clerk handles sign-out — call clerk.signOut() from the UI component.
-    // This is a no-op kept for API compatibility.
+    await supabase.auth.signOut();
   },
   
   setNodes: (nodes) => set({ nodes }),
   setProfiles: (profiles) => set({ profiles }),
   setPlant: (plant) => set({ plant }),
   setActivity: (activity) => set({ activity }),
+  setThresholds: (thresholds) => set((state) => {
+    const updatedSensors = { ...state.sensors };
+    thresholds.forEach((t) => {
+      if (updatedSensors[t.id]) {
+        updatedSensors[t.id] = {
+          ...updatedSensors[t.id],
+          optimal: { min: t.optimal_min, max: t.optimal_max },
+        };
+      }
+    });
+    return { sensors: updatedSensors };
+  }),
 }));

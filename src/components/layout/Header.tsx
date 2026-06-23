@@ -1,12 +1,18 @@
 "use client";
 
 import { useStore } from "@/store/useStore";
-import { useClerk } from "@clerk/nextjs";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 import React from "react";
 
 export function Header() {
   const { currentView, role, auth, realtimeStatus, lastSync } = useStore();
-  const { signOut } = useClerk();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/");
+  };
 
   const titles: Record<string, { title: string; subtitle: string }> = {
     dashboard: { title: "Dashboard", subtitle: "Real-time overview of your aloe vera crop" },
@@ -68,7 +74,7 @@ export function Header() {
         </div>
 
         <button 
-          onClick={() => signOut({ redirectUrl: "/sign-in" })}
+          onClick={handleLogout}
           className="px-3.5 py-2 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
           <i className="fa-solid fa-right-from-bracket"></i> Logout
         </button>

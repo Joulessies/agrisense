@@ -9,7 +9,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@clerk/nextjs": "^7.5.7",
     "@fortawesome/fontawesome-svg-core": "^7.2.0",
     "@fortawesome/free-solid-svg-icons": "^7.2.0",
     "@fortawesome/react-fontawesome": "^3.3.1",

@@ -3,8 +3,8 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
-// ─── Database-only client ─────────────────────────────────────────────────────
-// Auth is handled by Clerk. This client is used only for data (sensors, nodes, profiles, activity).
+// ─── Database + Auth client ──────────────────────────────────────────────────
+// Supabase handles both authentication and data (sensors, nodes, profiles, activity).
 declare global {
   // eslint-disable-next-line no-var
   var _supabase: SupabaseClient | undefined;

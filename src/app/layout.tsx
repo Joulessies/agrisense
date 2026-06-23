@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { ClerkProvider } from "@clerk/nextjs";
 import { AppWrapper } from "@/components/auth/AppWrapper";
 
 const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-inter",
+  preload: false,
 });
+
 
 export const metadata: Metadata = {
   title: "AgriSense | Smart Farm Monitor",
@@ -26,12 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider
-      signInUrl="/sign-in"
-      signUpUrl="/sign-up"
-      afterSignOutUrl="/sign-in"
-    >
-      <html lang="en">
+    <html lang="en">
         <head>
           <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
           <link rel="manifest" href="/manifest.json" />
@@ -42,24 +37,17 @@ export default function RootLayout({
           <script
             dangerouslySetInnerHTML={{
               __html: `
-                if ('serviceWorker' in navigator) {
-                  window.addEventListener('load', function() {
-                    navigator.serviceWorker.register('/sw.js').catch(function(err) {
-                      console.warn('SW registration failed:', err);
-                    });
-                  });
-                }
+                // Service worker registration temporarily disabled to prevent HMR infinite loops
               `,
             }}
           />
         </head>
         <body
-          className={`${inter.variable} antialiased bg-slate-50 text-slate-900 overflow-x-hidden`}
+          className={`${inter.className} antialiased bg-slate-50 text-slate-900 overflow-x-hidden`}
         >
           <AppWrapper>{children}</AppWrapper>
         </body>
-      </html>
-    </ClerkProvider>
+    </html>
   );
 }
 

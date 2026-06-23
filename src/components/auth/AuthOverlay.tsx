@@ -1,75 +1,72 @@
 "use client";
 
 import React, { useState } from "react";
-import { Role } from "@/store/useStore";
 import { supabase } from "@/lib/supabase";
 
-export function AuthOverlay() {
-  const [isRegistering, setIsRegistering] = useState(false);
+export function AuthOverlay({ initialIsRegistering = false }: { initialIsRegistering?: boolean }) {
+  const [isRegistering, setIsRegistering] = useState(initialIsRegistering);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [role, setRole] = useState<Role>("farmer");
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setInfo(null);
     setLoading(true);
 
     try {
       if (isRegistering) {
-        // Password Security Features
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{8,12}$/;
-        if (!passwordRegex.test(password)) {
-          setError("Password must be 8-12 characters, include uppercase, lowercase, numbers, and special characters (!@#$%^&*).");
+        if (password.length < 6) {
+          setError("Password must be at least 6 characters.");
           setLoading(false);
           return;
         }
 
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: {
-              name,
-              role,
-            },
+            data: { name },
           },
         });
+
         if (signUpError) throw signUpError;
-        // Depending on email confirmation settings, they might be logged in automatically,
-        // or they might need to check their email.
-        if (email) {
-          // Attempt to login directly if email confirmation is disabled
-          await supabase.auth.signInWithPassword({ email, password });
+
+        // If Supabase email confirmation is enabled, signUp returns a user but
+        // no session. Attempt an immediate sign-in; if that fails it means
+        // the user needs to confirm their email first.
+        if (!signUpData.session) {
+          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+          if (signInError) {
+            // Email confirmation is required — let the user know.
+            setInfo("Account created! Please check your email to confirm your address before signing in.");
+            setLoading(false);
+            return;
+          }
         }
+        // If we got a session from signUp directly, onAuthStateChange in
+        // AppWrapper handles the rest — nothing else to do here.
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (signInError) throw signInError;
+        // onAuthStateChange in AppWrapper handles session and UI update.
       }
     } catch (err: any) {
-      console.error("Auth Error (full):", err);
-      console.error("Auth Error name:", err?.name);
-      console.error("Auth Error message:", err?.message);
-      console.error("Auth Error status:", err?.status);
-      console.error("Auth Error cause:", err?.cause);
-
-      if (typeof err?.status === 'number') {
-        if (err.status === 401) {
-          setError("Invalid email or password. Please check your credentials.");
-        } else if (err.status === 422) {
-          setError("Email already registered or invalid input. Please try again.");
-        } else {
-          setError(`Error ${err.status}: ${err.message || "Authentication failed."}`);
-        }
+      const status = err?.status ?? err?.code;
+      if (status === 400 || status === 401 || err?.message?.toLowerCase().includes("invalid login")) {
+        setError("Invalid email or password. Please check your credentials.");
+      } else if (status === 422 || err?.message?.toLowerCase().includes("already registered")) {
+        setError("This email is already registered. Try signing in instead.");
       } else {
-        // For other errors, try to show a clean message
-        setError(err?.message || "An unexpected error occurred. Please try again or contact support.");
+        setError(err?.message || "An unexpected error occurred. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -95,17 +92,24 @@ export function AuthOverlay() {
                 {error}
               </div>
             )}
+            {info && (
+              <div className="p-3 bg-green-50 text-green-700 text-sm rounded-lg border border-green-100">
+                {info}
+              </div>
+            )}
 
             {isRegistering && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-agri-500/30 focus:border-agri-500 transition"
-                  required
-                />
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-agri-500/30 focus:border-agri-500 transition"
+                    required
+                  />
+                </div>
               </div>
             )}
 
@@ -122,20 +126,28 @@ export function AuthOverlay() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-agri-500/30 focus:border-agri-500 transition"
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-2 pr-10 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-agri-500/30 focus:border-agri-500 transition"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-600 transition"
+                  tabIndex={-1}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  <i className={`fa-solid ${showPassword ? "fa-eye-slash" : "fa-eye"} text-sm`}></i>
+                </button>
+              </div>
               {isRegistering && (
-                <ul className="text-[11px] text-slate-500 mt-2 list-disc list-inside space-y-0.5">
-                  <li>8-12 characters</li>
-                  <li>Mix of uppercase & lowercase</li>
-                  <li>At least one number (0-9)</li>
-                  <li>Special character (!@#$%^&*)</li>
-                </ul>
+                <p className="text-[11px] text-slate-500 mt-2">
+                  Must be at least 6 characters long.
+                </p>
               )}
             </div>
 
@@ -156,6 +168,7 @@ export function AuthOverlay() {
               onClick={() => {
                 setIsRegistering(!isRegistering);
                 setError(null);
+                setInfo(null);
               }}
               className="text-sm text-slate-500 hover:text-agri-600 font-medium transition"
             >

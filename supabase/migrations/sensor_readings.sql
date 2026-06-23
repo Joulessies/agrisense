@@ -20,12 +20,12 @@ alter table public.sensor_readings enable row level security;
 
 -- Dev/demo: open read/write for requests using the anon key.
 -- Tighten these before production (e.g. Edge Function + device tokens, or stricter checks).
-create policy "sensor_readings_anon_select"
+create policy "sensor_readings_public_select"
   on public.sensor_readings for select
-  to anon
+  to public
   using (true);
 
-create policy "sensor_readings_anon_insert"
+create policy "sensor_readings_public_insert"
   on public.sensor_readings for insert
-  to anon
+  to public
   with check (true);

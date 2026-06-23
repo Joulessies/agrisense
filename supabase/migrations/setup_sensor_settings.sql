@@ -11,7 +11,6 @@ ALTER TABLE public.sensor_settings ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Sensor settings are viewable by everyone." 
   ON public.sensor_settings FOR SELECT USING (true);
 
--- Assuming updating is handled by application logic that checks role, but let's allow authenticated users or anyone for demo
 CREATE POLICY "Sensor settings can be updated by everyone." 
   ON public.sensor_settings FOR UPDATE USING (true);
 

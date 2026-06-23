@@ -13,48 +13,14 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
 }
 
 export function AppWrapper({ children }: { children: React.ReactNode }) {
-  const setSession = useStore((state) => state.setSession);
-  const clearSession = useStore((state) => state.clearSession);
+  const isAuthenticated = useStore((state) => state.auth.isAuthenticated);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isSignedIn, setIsSignedIn] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        const u = session.user;
-        setSession({
-          id: u.id,
-          email: u.email ?? "",
-          name: u.user_metadata?.name ?? u.email?.split("@")[0] ?? "User",
-          role: u.user_metadata?.role ?? "farmer",
-        });
-        setIsSignedIn(true);
-      } else {
-        clearSession();
-        setIsSignedIn(false);
-      }
-      setIsLoaded(true);
-    });
-
-    // Listen for auth state changes (sign-in / sign-out)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        const u = session.user;
-        setSession({
-          id: u.id,
-          email: u.email ?? "",
-          name: u.user_metadata?.name ?? u.email?.split("@")[0] ?? "User",
-          role: u.user_metadata?.role ?? "farmer",
-        });
-        setIsSignedIn(true);
-      } else {
-        clearSession();
-        setIsSignedIn(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [setSession, clearSession]);
+    // Simulate a brief loading state, bypassing real Supabase Auth
+    const timer = setTimeout(() => setIsLoaded(true), 400);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Show a spinner while Supabase resolves the initial session
   if (!isLoaded) {
@@ -71,7 +37,7 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
   }
 
   // Show sign-in modal if not authenticated
-  if (!isSignedIn) return <AuthOverlay />;
+  if (!isAuthenticated) return <AuthOverlay />;
 
   return <AuthenticatedShell>{children}</AuthenticatedShell>;
 }

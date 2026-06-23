@@ -2,8 +2,11 @@
 
 import React, { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useStore, Role } from "@/store/useStore";
 
 export function AuthOverlay({ initialIsRegistering = false }: { initialIsRegistering?: boolean }) {
+  const setSession = useStore((state) => state.setSession);
+  const [role, setRole] = useState<Role>("farmer");
   const [isRegistering, setIsRegistering] = useState(initialIsRegistering);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,45 +23,18 @@ export function AuthOverlay({ initialIsRegistering = false }: { initialIsRegiste
     setLoading(true);
 
     try {
-      if (isRegistering) {
-        if (password.length < 6) {
-          setError("Password must be at least 6 characters.");
-          setLoading(false);
-          return;
-        }
+      // MOCK LOGIN BYPASS: Just set the session directly in Zustand
+      // If registering, use the selected role. If signing in, guess from the email or default to farmer.
+      const assignedRole = isRegistering ? role : (email.toLowerCase().includes('admin') ? 'admin' : 'farmer');
+      const assignedName = name || email.split('@')[0] || 'User';
 
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { name },
-          },
-        });
-
-        if (signUpError) throw signUpError;
-
-        // If Supabase email confirmation is enabled, signUp returns a user but
-        // no session. Attempt an immediate sign-in; if that fails it means
-        // the user needs to confirm their email first.
-        if (!signUpData.session) {
-          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-          if (signInError) {
-            // Email confirmation is required — let the user know.
-            setInfo("Account created! Please check your email to confirm your address before signing in.");
-            setLoading(false);
-            return;
-          }
-        }
-        // If we got a session from signUp directly, onAuthStateChange in
-        // AppWrapper handles the rest — nothing else to do here.
-      } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (signInError) throw signInError;
-        // onAuthStateChange in AppWrapper handles session and UI update.
-      }
+      setSession({
+        id: `mock-user-${Date.now()}`,
+        email: email,
+        name: assignedName,
+        role: assignedRole,
+      });
+      // AppWrapper will detect isAuthenticated = true and unmount AuthOverlay
     } catch (err: any) {
       const status = err?.status ?? err?.code;
       if (status === 400 || status === 401 || err?.message?.toLowerCase().includes("invalid login")) {

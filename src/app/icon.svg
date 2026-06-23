@@ -1,0 +1,11 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="140" fill="#e1f0e4" />
+  <g transform="translate(0, 30)">
+    <!-- Stem -->
+    <path d="M256,380 L256,250" stroke="#1e7136" stroke-width="32" stroke-linecap="round" />
+    <!-- Right Leaf -->
+    <path d="M256,260 C350,260 400,180 380,120 C300,100 256,160 256,260 Z" fill="#1e7136" stroke="#d4c94f" stroke-width="8" stroke-linejoin="round" />
+    <!-- Left Leaf -->
+    <path d="M256,290 C170,290 120,220 140,160 C210,140 256,190 256,290 Z" fill="#1e7136" stroke="#d4c94f" stroke-width="8" stroke-linejoin="round" />
+  </g>
+</svg>

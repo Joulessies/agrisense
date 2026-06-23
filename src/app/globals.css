@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme {
+  --color-agri-50: #f1faf3;
+  --color-agri-100: #dcf2e1;
+  --color-agri-200: #bce4c8;
+  --color-agri-300: #8ccfa3;
+  --color-agri-400: #57b378;
+  --color-agri-500: #349658;
+  --color-agri-600: #247845;
+  --color-agri-700: #1d5f39;
+  --color-agri-800: #194c2f;
+  --color-agri-900: #163f28;
+
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased;
+  }
+}
+
+@layer utilities {
+  .admin-only { display: none; }
+  body.role-admin .admin-only { display: block; }
+  body.role-admin .admin-only.flex { display: flex; }
+  
+  .farmer-only { display: none; }
+  body.role-farmer .farmer-only { display: block; }
+  body.role-farmer .farmer-only.flex { display: flex; }
+
+  .live-dot {
+    animation: pulseDot 2s infinite;
+  }
+
+  @keyframes pulseDot {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(52, 150, 88, 0.55);
+    }
+    50% {
+      box-shadow: 0 0 0 6px rgba(52, 150, 88, 0);
+    }
+  }
+
+  .toast {
+    pointer-events: auto;
+    background: #0f172a;
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    box-shadow: 0 10px 25px -10px rgba(15, 23, 42, 0.35);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 240px;
+    max-width: 360px;
+    opacity: 0;
+    transform: translateY(8px);
+    animation: toastIn 200ms ease forwards;
+  }
+
+  .toast-success { background: #1d5f39; }
+  .toast-warning { background: #b45309; }
+  .toast-error { background: #b91c1c; }
+
+  .toast-out {
+    animation: toastOut 200ms ease forwards;
+  }
+
+  @keyframes toastIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes toastOut {
+    to { opacity: 0; transform: translateY(8px); }
+  }
+}

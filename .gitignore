@@ -40,5 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# clerk configuration (can include secrets)
-/.clerk/
+# firmware secrets — never commit real credentials
+firmware/esp32_agrisense/agrisense_secrets.h
+

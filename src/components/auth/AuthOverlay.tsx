@@ -23,18 +23,47 @@ export function AuthOverlay({ initialIsRegistering = false }: { initialIsRegiste
     setLoading(true);
 
     try {
-      const assignedRole = isRegistering ? role : (email.toLowerCase().includes('admin') ? 'admin' : 'farmer');
-      const assignedName = name || email.split('@')[0] || 'User';
+      if (isRegistering) {
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { name, role } },
+        });
+        if (signUpError) throw signUpError;
+        if (data.user && !data.session) {
+          // Email confirmation required
+          setInfo("Account created! Check your email to confirm your address before signing in.");
+        } else if (data.user && data.session) {
+          // Auto-confirmed (e.g. disabled email confirmation in Supabase)
+          const profile = data.user.user_metadata;
+          setSession({
+            id: data.user.id,
+            email: data.user.email ?? email,
+            name: profile?.name ?? name,
+            role: profile?.role ?? role,
+          });
+        }
+      } else {
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInError) throw signInError;
 
-      setSession({
-        id: `mock-user-${Date.now()}`,
-        email: email,
-        name: assignedName,
-        role: assignedRole,
-      });
+        // Fetch role from profiles table (authoritative source)
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('name, role')
+          .eq('id', data.user.id)
+          .single();
+
+        setSession({
+          id: data.user.id,
+          email: data.user.email ?? email,
+          name: profileData?.name ?? data.user.user_metadata?.name ?? email.split('@')[0],
+          role: profileData?.role ?? data.user.user_metadata?.role ?? 'farmer',
+        });
+      }
     } catch (err: any) {
       const status = err?.status ?? err?.code;
-      if (status === 400 || status === 401 || err?.message?.toLowerCase().includes("invalid login")) {
+      if (status === 400 || status === 401 || err?.message?.toLowerCase().includes("invalid login") || err?.message?.toLowerCase().includes("invalid credentials")) {
         setError("Invalid email or password. Please check your credentials.");
       } else if (status === 422 || err?.message?.toLowerCase().includes("already registered")) {
         setError("This email is already registered. Try signing in instead.");

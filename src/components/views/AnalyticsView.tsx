@@ -241,25 +241,25 @@ export function AnalyticsView() {
         />
         <StatCard
           title="Water Usage"
-          value="14.2"
-          unit="kL"
+          value="—"
+          unit=""
           icon="fa-droplet"
           iconColor="text-sky-500"
           iconBg="bg-sky-50"
-          trendIcon="fa-arrow-trend-down"
-          trendText="-2% from last week"
-          trendColor="text-emerald-600"
+          trendIcon="fa-circle-info"
+          trendText="No meter connected"
+          trendColor="text-slate-400"
         />
         <StatCard
           title="Energy Consumption"
-          value={342}
-          unit="kWh"
+          value="—"
+          unit=""
           icon="fa-bolt"
           iconColor="text-amber-500"
           iconBg="bg-amber-50"
-          trendIcon="fa-arrow-trend-up"
-          trendText="+12% from last week"
-          trendColor="text-rose-600"
+          trendIcon="fa-circle-info"
+          trendText="No meter connected"
+          trendColor="text-slate-400"
         />
         <StatCard
           title="Anomalies Detected"

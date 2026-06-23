@@ -2,13 +2,29 @@
 
 import React from "react";
 import { useStore } from "@/store/useStore";
-import { getStatus } from "@/lib/utils";
+import { getStatus, clamp } from "@/lib/utils";
+
+function getSensorScore(sensor: { value: number; min: number; max: number; optimal: { min: number; max: number } }) {
+  const { value, min, max, optimal } = sensor;
+  if (value >= optimal.min && value <= optimal.max) return 100;
+  if (value < optimal.min) {
+    const range = optimal.min - min;
+    return range <= 0 ? 0 : clamp(100 - ((optimal.min - value) / range) * 100, 0, 100);
+  } else {
+    const range = max - optimal.max;
+    return range <= 0 ? 0 : clamp(100 - ((value - optimal.max) / range) * 100, 0, 100);
+  }
+}
 
 export function PlantStatusCard() {
   const { sensors } = useStore();
   const out = Object.values(sensors).filter((s) => getStatus(s) !== "ok");
 
-  let label, reason, iconColor, iconBg, icon, vitality, stress, stressColor;
+  // Compute vitality as average sensor score
+  const scores = Object.values(sensors).map((s) => getSensorScore(s));
+  const vitality = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+
+  let label, reason, iconColor, iconBg, icon, stress, stressColor;
 
   if (out.length === 0) {
     label = "Healthy";
@@ -16,7 +32,6 @@ export function PlantStatusCard() {
     iconColor = "text-agri-700";
     iconBg = "bg-agri-100";
     icon = "fa-heart";
-    vitality = "92%";
     stress = "Low";
     stressColor = "text-agri-600";
   } else if (out.length === 1) {
@@ -25,7 +40,6 @@ export function PlantStatusCard() {
     iconColor = "text-amber-700";
     iconBg = "bg-amber-100";
     icon = "fa-triangle-exclamation";
-    vitality = "72%";
     stress = "Medium";
     stressColor = "text-amber-600";
   } else {
@@ -34,7 +48,6 @@ export function PlantStatusCard() {
     iconColor = "text-rose-700";
     iconBg = "bg-rose-100";
     icon = "fa-circle-exclamation";
-    vitality = "55%";
     stress = "High";
     stressColor = "text-rose-600";
   }
@@ -52,10 +65,6 @@ export function PlantStatusCard() {
         <div>
           <p className={`text-lg font-semibold ${iconColor}`}>
             {label}
-            <i
-              className="fa-solid fa-info-circle ml-2 cursor-pointer text-slate-400 text-sm align-middle hover:text-slate-600 transition-colors"
-              title="AI explanation: Placeholder for model insights"
-            ></i>
           </p>
           <p className="text-xs text-slate-500">{reason}</p>
         </div>
@@ -63,7 +72,7 @@ export function PlantStatusCard() {
       <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-3 gap-2 text-center">
         <div>
           <p className="text-[10px] text-slate-400 uppercase">Vitality</p>
-          <p className="text-sm font-semibold text-slate-700">{vitality}</p>
+          <p className="text-sm font-semibold text-slate-700">{vitality}%</p>
         </div>
         <div>
           <p className="text-[10px] text-slate-400 uppercase">Stress</p>

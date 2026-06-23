@@ -87,7 +87,7 @@ export async function fetchWeather(lat: number, lon: number): Promise<WeatherDat
 
 export async function fetchWeatherByCity(city: string): Promise<WeatherData> {
   const geoRes = await fetch(
-    `http://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city)}&limit=1&appid=${API_KEY}`
+    `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city)}&limit=1&appid=${API_KEY}`
   );
   const geo = await geoRes.json();
   if (!geo.length) throw new Error(`City "${city}" not found`);

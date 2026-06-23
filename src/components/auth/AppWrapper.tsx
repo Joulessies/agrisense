@@ -17,9 +17,33 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    // Simulate a brief loading state, bypassing real Supabase Auth
-    const timer = setTimeout(() => setIsLoaded(true), 400);
-    return () => clearTimeout(timer);
+    // Restore session from Supabase on mount
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('name, role')
+          .eq('id', session.user.id)
+          .single();
+
+        useStore.getState().setSession({
+          id: session.user.id,
+          email: session.user.email ?? '',
+          name: profileData?.name ?? session.user.user_metadata?.name ?? session.user.email?.split('@')[0] ?? 'User',
+          role: profileData?.role ?? session.user.user_metadata?.role ?? 'farmer',
+        });
+      }
+      setIsLoaded(true);
+    });
+
+    // Listen for auth state changes (sign-in / sign-out from other tabs)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        useStore.getState().clearSession();
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // Show a spinner while Supabase resolves the initial session

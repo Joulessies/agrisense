@@ -168,11 +168,18 @@ export const useStore = create<AppState>((set) => ({
   }),
   addActivity: async (text, tone = "info") => {
     const timeStr = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const newItem = { time: timeStr, text, tone };
     // Optimistic update
     set((state) => {
-      const newActivity = [{ time: timeStr, text, tone }, ...state.activity].slice(0, 30);
+      const newActivity = [newItem, ...state.activity].slice(0, 30);
       return { activity: newActivity };
     });
+    // Persist to database
+    try {
+      await supabase.from('activity_logs').insert([{ time: timeStr, text, tone }]);
+    } catch (err) {
+      console.error('[addActivity] Failed to persist to DB:', err);
+    }
   },
   setSession: (user) => set((state) => ({
     role: user.role || "farmer",
@@ -197,6 +204,14 @@ export const useStore = create<AppState>((set) => ({
   })),
   logout: async () => {
     await supabase.auth.signOut();
+    set((state) => ({
+      role: "farmer",
+      auth: {
+        ...state.auth,
+        isAuthenticated: false,
+        currentUser: null,
+      }
+    }));
   },
 
   setNodes: (nodes) => set({ nodes }),

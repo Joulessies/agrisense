@@ -1,16 +1,15 @@
 "use client";
 
 import { useStore } from "@/store/useStore";
-import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import React from "react";
 
 export function Header() {
-  const { currentView, role, auth, realtimeStatus, lastSync } = useStore();
+  const { currentView, role, auth, realtimeStatus, lastSync, logout } = useStore();
   const router = useRouter();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await logout();
     router.push("/");
   };
 
@@ -58,13 +57,13 @@ export function Header() {
         </div>
         <span className="hidden md:inline text-slate-300">•</span>
 
-        <div className="hidden md:flex items-center gap-2 text-xs text-slate-500" title="Connection status">
+        <div className="hidden md:flex items-center gap-2 text-xs text-slate-500" title="Last data sync">
           <span className="relative flex w-2.5 h-2.5">
-            <span className="absolute inline-flex w-full h-full rounded-full bg-amber-400 opacity-75 animate-ping live-dot"></span>
-            <span className="relative inline-flex w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+            {isRealtime && (
+              <span className="absolute inline-flex w-full h-full rounded-full bg-emerald-400 opacity-75 animate-ping"></span>
+            )}
+            <span className={`relative inline-flex w-2.5 h-2.5 rounded-full ${isRealtime ? "bg-emerald-500" : "bg-amber-400"}`}></span>
           </span>
-          <span>Simulated</span>
-          <span className="text-slate-300">•</span>
           <span>
             Last sync:{" "}
             <span className="text-slate-700 font-medium">

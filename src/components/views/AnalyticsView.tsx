@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { useStore } from "@/store/useStore";
 import {
   Chart as ChartJS,
@@ -45,7 +46,46 @@ const INSIGHT_COLORS: Record<string, { bg: string; icon: string; title: string; 
 
 export function AnalyticsView() {
   const { analyticsRange, sensors } = useStore();
-  const { insights, isLoading, error, refresh } = useGeminiInsights();
+  const { insights, isLoading: insightsLoading, error, refresh } = useGeminiInsights();
+
+  const [dailyData, setDailyData] = useState<any[]>([]);
+  const [anomalyCount, setAnomalyCount] = useState(0);
+  const [isFetching, setIsFetching] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      setIsFetching(true);
+      try {
+        // Fetch 7 days of analytics
+        const { data: analyticsData } = await supabase
+          .from("sensor_analytics_daily")
+          .select("*")
+          .limit(7)
+          .order("day", { ascending: false });
+
+        if (analyticsData) {
+          // Reverse so oldest is on the left
+          setDailyData(analyticsData.reverse());
+        }
+
+        // Fetch anomaly count
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const { count } = await supabase
+          .from("activity_logs")
+          .select("*", { count: "exact", head: true })
+          .in("tone", ["warning", "critical"])
+          .gte("created_at", sevenDaysAgo.toISOString());
+        
+        if (count !== null) setAnomalyCount(count);
+      } catch (e) {
+        console.error("Failed to fetch analytics:", e);
+      } finally {
+        setIsFetching(false);
+      }
+    }
+    fetchData();
+  }, []);
 
   const handleRefresh = () => {
     const sensorPayload = Object.fromEntries(
@@ -57,12 +97,31 @@ export function AnalyticsView() {
     refresh(sensorPayload);
   };
 
+  // Helper to calculate radar score
+  const getScore = (sensor: any) => {
+    const { value, min, max, optimal } = sensor;
+    if (value >= optimal.min && value <= optimal.max) return 100;
+    if (value < optimal.min) {
+      const range = optimal.min - min;
+      return range <= 0 ? 0 : Math.max(0, 100 - ((optimal.min - value) / range) * 100);
+    } else {
+      const range = max - optimal.max;
+      return range <= 0 ? 0 : Math.max(0, 100 - ((value - optimal.max) / range) * 100);
+    }
+  };
+
+  const soilScore = getScore(sensors.soilMoisture);
+  const tempScore = getScore(sensors.temperature);
+  const humScore = getScore(sensors.humidity);
+  const lightScore = getScore(sensors.light);
+  const overallHealth = Math.round((soilScore + tempScore + humScore + lightScore) / 4);
+
   const radarData = {
-    labels: ["Soil Moisture", "Temperature", "Humidity", "Light Intensity", "Air Quality", "Nutrients"],
+    labels: ["Soil Moisture", "Temperature", "Humidity", "Light Intensity"],
     datasets: [
       {
-        label: "Current",
-        data: [85, 90, 75, 80, 95, 70],
+        label: "Current Health",
+        data: [soilScore, tempScore, humScore, lightScore],
         backgroundColor: "rgba(52, 150, 88, 0.2)",
         borderColor: "rgba(52, 150, 88, 1)",
         borderWidth: 2,
@@ -76,12 +135,28 @@ export function AnalyticsView() {
     maintainAspectRatio: false,
   };
 
+  const barLabels = dailyData.length > 0 
+    ? dailyData.map(d => new Date(d.day).toLocaleDateString('en-US', { weekday: 'short' }))
+    : ["No Data"];
+
   const barData = {
-    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    labels: barLabels,
     datasets: [
-      { label: "Soil Moisture", data: [45, 42, 40, 38, 35, 48, 45], backgroundColor: "#349658" },
-      { label: "Temperature", data: [26, 27, 28, 29, 28, 27, 26], backgroundColor: "#fbbf24" },
-      { label: "Humidity", data: [60, 62, 58, 55, 65, 70, 68], backgroundColor: "#38bdf8" },
+      { 
+        label: "Soil Moisture", 
+        data: dailyData.length > 0 ? dailyData.map(d => d.avg_soil_moisture ?? 0) : [0], 
+        backgroundColor: "#349658" 
+      },
+      { 
+        label: "Temperature", 
+        data: dailyData.length > 0 ? dailyData.map(d => d.avg_temperature ?? 0) : [0], 
+        backgroundColor: "#fbbf24" 
+      },
+      { 
+        label: "Humidity", 
+        data: dailyData.length > 0 ? dailyData.map(d => d.avg_humidity ?? 0) : [0], 
+        backgroundColor: "#38bdf8" 
+      },
     ],
   };
 
@@ -155,14 +230,14 @@ export function AnalyticsView() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
         <StatCard
           title="Crop Health Index"
-          value={92}
+          value={overallHealth}
           unit="/ 100"
           icon="fa-leaf"
           iconColor="text-agri-600"
           iconBg="bg-agri-50"
-          trendIcon="fa-arrow-trend-up"
-          trendText="+4% from last week"
-          trendColor="text-agri-600"
+          trendIcon={overallHealth > 80 ? "fa-arrow-trend-up" : "fa-arrow-trend-down"}
+          trendText={overallHealth > 80 ? "Optimal" : "Needs attention"}
+          trendColor={overallHealth > 80 ? "text-agri-600" : "text-amber-500"}
         />
         <StatCard
           title="Water Usage"
@@ -188,12 +263,12 @@ export function AnalyticsView() {
         />
         <StatCard
           title="Anomalies Detected"
-          value={3}
+          value={isFetching ? "-" : anomalyCount}
           icon="fa-triangle-exclamation"
           iconColor="text-rose-500"
           iconBg="bg-rose-50"
-          trendIcon="fa-minus"
-          trendText="No change from last week"
+          trendIcon="fa-clock"
+          trendText="In the last 7 days"
           trendColor="text-slate-500"
         />
       </div>
@@ -212,17 +287,17 @@ export function AnalyticsView() {
           <button
             type="button"
             onClick={handleRefresh}
-            disabled={isLoading}
+            disabled={insightsLoading}
             className="shrink-0 text-sm px-4 py-2 rounded-lg bg-agri-600 hover:bg-agri-700 disabled:opacity-60 text-white font-medium flex items-center gap-2 transition"
           >
-            <i className={`fa-solid fa-rotate ${isLoading ? "animate-spin" : ""}`}></i>
-            {isLoading ? "Analysing…" : "Refresh analysis"}
+            <i className={`fa-solid fa-rotate ${insightsLoading ? "animate-spin" : ""}`}></i>
+            {insightsLoading ? "Analysing…" : "Refresh analysis"}
           </button>
         </div>
 
         <div className="p-6 pt-4 space-y-3">
           {/* Error state */}
-          {error && !isLoading && (
+          {error && !insightsLoading && (
             <div className="flex items-start gap-3 bg-rose-50 rounded-lg p-4 border border-rose-100">
               <i className="fa-solid fa-circle-exclamation text-rose-500 mt-0.5"></i>
               <div>
@@ -233,7 +308,7 @@ export function AnalyticsView() {
           )}
 
           {/* Loading skeleton */}
-          {isLoading && (
+          {insightsLoading && (
             <>
               {[1, 2].map((i) => (
                 <div key={i} className="flex items-start gap-3 bg-slate-50 rounded-lg p-4 border border-slate-100 animate-pulse">
@@ -249,7 +324,7 @@ export function AnalyticsView() {
           )}
 
           {/* Empty / prompt state */}
-          {!isLoading && !error && insights.length === 0 && (
+          {!insightsLoading && !error && insights.length === 0 && (
             <div className="text-center py-6">
               <i className="fa-solid fa-wand-magic-sparkles text-slate-200 text-3xl mb-3"></i>
               <p className="text-sm text-slate-500">
@@ -259,7 +334,7 @@ export function AnalyticsView() {
           )}
 
           {/* Results */}
-          {!isLoading && insights.map((insight, i) => {
+          {!insightsLoading && insights.map((insight, i) => {
             const colors = INSIGHT_COLORS[insight.type] ?? INSIGHT_COLORS.tip;
             return (
               <li key={i} className={`flex items-start gap-3 rounded-lg p-4 border list-none ${colors.bg}`}>

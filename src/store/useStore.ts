@@ -57,10 +57,10 @@ interface AppState {
   lastSync: Date;
   analyticsRange: string;
   dismissedAlerts: Set<string>;
-  
+
   realtimeStatus: "connected" | "disconnected";
   currentView: string;
-  
+
   // Actions
   setCurrentView: (view: string) => void;
   setRole: (role: Role) => void;
@@ -70,7 +70,7 @@ interface AppState {
   setSession: (user: any) => void;
   clearSession: () => void;
   logout: () => Promise<void>;
-  
+
   // DB Sync Actions
   setNodes: (nodes: NodeItem[]) => void;
   setProfiles: (profiles: ProfileItem[]) => void;
@@ -173,8 +173,7 @@ export const useStore = create<AppState>((set) => ({
       const newActivity = [{ time: timeStr, text, tone }, ...state.activity].slice(0, 30);
       return { activity: newActivity };
     });
-    // Purely local optimistic UI update for any manual alerts.
-    // DB-generated alerts arrive via Realtime instead.
+  },
   setSession: (user) => set((state) => ({
     role: user.role || "farmer",
     auth: {
@@ -199,7 +198,7 @@ export const useStore = create<AppState>((set) => ({
   logout: async () => {
     await supabase.auth.signOut();
   },
-  
+
   setNodes: (nodes) => set({ nodes }),
   setProfiles: (profiles) => set({ profiles }),
   setPlant: (plant) => set({ plant }),

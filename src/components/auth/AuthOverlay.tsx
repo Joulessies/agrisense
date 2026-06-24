@@ -62,13 +62,22 @@ export function AuthOverlay({ initialIsRegistering = false }: { initialIsRegiste
         });
       }
     } catch (err: any) {
+      console.error('[AuthOverlay] Sign-in/up failed:', err);
       const status = err?.status ?? err?.code;
-      if (status === 400 || status === 401 || err?.message?.toLowerCase().includes("invalid login") || err?.message?.toLowerCase().includes("invalid credentials")) {
+      const msg = err?.message ?? '';
+      
+      if (status === 400 || status === 401 || msg.toLowerCase().includes("invalid login") || msg.toLowerCase().includes("invalid credentials")) {
         setError("Invalid email or password. Please check your credentials.");
-      } else if (status === 422 || err?.message?.toLowerCase().includes("already registered")) {
+      } else if (status === 422 || msg.toLowerCase().includes("already registered")) {
         setError("This email is already registered. Try signing in instead.");
+      } else if (msg.toLowerCase().includes("email not confirmed")) {
+        setError("Please check your email and click the confirmation link before signing in.");
       } else {
-        setError(err?.message || "An unexpected error occurred. Please try again.");
+        // Show raw error in development, friendly message in production
+        const displayMsg = process.env.NODE_ENV === 'development' 
+          ? `${msg} (Status: ${status})`
+          : "An unexpected error occurred. Please try again or contact support.";
+        setError(displayMsg);
       }
     } finally {
       setLoading(false);

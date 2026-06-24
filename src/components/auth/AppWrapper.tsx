@@ -18,28 +18,60 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Restore session from Supabase on mount
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('name, role')
-          .eq('id', session.user.id)
-          .single();
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      if (error) {
+        console.error('[AppWrapper] Failed to get session:', error);
+        setIsLoaded(true);
+        return;
+      }
 
-        useStore.getState().setSession({
-          id: session.user.id,
-          email: session.user.email ?? '',
-          name: profileData?.name ?? session.user.user_metadata?.name ?? session.user.email?.split('@')[0] ?? 'User',
-          role: profileData?.role ?? session.user.user_metadata?.role ?? 'farmer',
-        });
+      if (session?.user) {
+        try {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('name, role')
+            .eq('id', session.user.id)
+            .single();
+
+          if (profileError) {
+            console.error('[AppWrapper] Failed to fetch profile:', profileError);
+          }
+
+          useStore.getState().setSession({
+            id: session.user.id,
+            email: session.user.email ?? '',
+            name: profileData?.name ?? session.user.user_metadata?.name ?? session.user.email?.split('@')[0] ?? 'User',
+            role: profileData?.role ?? session.user.user_metadata?.role ?? 'farmer',
+          });
+        } catch (err) {
+          console.error('[AppWrapper] Error processing session:', err);
+        }
       }
       setIsLoaded(true);
     });
 
     // Listen for auth state changes (sign-in / sign-out from other tabs)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[AppWrapper] Auth state changed:', event);
       if (event === 'SIGNED_OUT' || !session) {
         useStore.getState().clearSession();
+      } else if (event === 'SIGNED_IN' && session) {
+        try {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('name, role')
+            .eq('id', session.user.id)
+            .single();
+
+          useStore.getState().setSession({
+            id: session.user.id,
+            email: session.user.email ?? '',
+            name: profileData?.name ?? session.user.user_metadata?.name ?? session.user.email?.split('@')[0] ?? 'User',
+            role: profileData?.role ?? session.user.user_metadata?.role ?? 'farmer',
+          });
+        } catch (err) {
+          console.error('[AppWrapper] Error on auth state change:', err);
+        }
       }
     });
 

@@ -52,7 +52,6 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
 
     // Listen for auth state changes (sign-in / sign-out from other tabs)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('[AppWrapper] Auth state changed:', event);
       if (event === 'SIGNED_OUT' || !session) {
         useStore.getState().clearSession();
       } else if (event === 'SIGNED_IN' && session) {

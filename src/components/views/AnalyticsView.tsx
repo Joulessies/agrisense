@@ -56,7 +56,6 @@ export function AnalyticsView() {
     async function fetchData() {
       setIsFetching(true);
       try {
-        // Fetch 7 days of analytics
         const { data: analyticsData } = await supabase
           .from("sensor_analytics_daily")
           .select("*")
@@ -64,11 +63,9 @@ export function AnalyticsView() {
           .order("day", { ascending: false });
 
         if (analyticsData) {
-          // Reverse so oldest is on the left
           setDailyData(analyticsData.reverse());
         }
 
-        // Fetch anomaly count
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         const { count } = await supabase
@@ -97,7 +94,6 @@ export function AnalyticsView() {
     refresh(sensorPayload);
   };
 
-  // Helper to calculate radar score
   const getScore = (sensor: any) => {
     const { value, min, max, optimal } = sensor;
     if (value >= optimal.min && value <= optimal.max) return 100;
@@ -273,7 +269,6 @@ export function AnalyticsView() {
         />
       </div>
 
-      {/* ── Gemini AI Insights ─────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
@@ -296,7 +291,6 @@ export function AnalyticsView() {
         </div>
 
         <div className="p-6 pt-4 space-y-3">
-          {/* Error state */}
           {error && !insightsLoading && (
             <div className="flex items-start gap-3 bg-rose-50 rounded-lg p-4 border border-rose-100">
               <i className="fa-solid fa-circle-exclamation text-rose-500 mt-0.5"></i>
@@ -307,7 +301,6 @@ export function AnalyticsView() {
             </div>
           )}
 
-          {/* Loading skeleton */}
           {insightsLoading && (
             <>
               {[1, 2].map((i) => (
@@ -323,7 +316,6 @@ export function AnalyticsView() {
             </>
           )}
 
-          {/* Empty / prompt state */}
           {!insightsLoading && !error && insights.length === 0 && (
             <div className="text-center py-6">
               <i className="fa-solid fa-wand-magic-sparkles text-slate-200 text-3xl mb-3"></i>
@@ -333,7 +325,6 @@ export function AnalyticsView() {
             </div>
           )}
 
-          {/* Results */}
           {!insightsLoading && insights.map((insight, i) => {
             const colors = INSIGHT_COLORS[insight.type] ?? INSIGHT_COLORS.tip;
             return (

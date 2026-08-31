@@ -37,7 +37,6 @@ export default function Home() {
         {renderView()}
       </main>
       
-      {/* Toast container placeholder */}
       <div id="toastContainer" className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 items-end pointer-events-none"></div>
     </div>
   );

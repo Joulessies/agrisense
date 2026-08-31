@@ -14,7 +14,6 @@ function ForecastPill({ day }: { day: ForecastDay }) {
   return (
     <div className="flex flex-col items-center gap-1 bg-white/60 backdrop-blur-sm rounded-xl px-3 py-2 border border-white/80 min-w-[72px]">
       <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">{label}</p>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={ICON_URL(day.icon)} alt={day.description} className="w-8 h-8 -my-1" />
       <p className="text-xs font-bold text-slate-800">{day.tempMax}°</p>
       <p className="text-[10px] text-slate-400">{day.tempMin}°</p>
@@ -28,10 +27,8 @@ function ForecastPill({ day }: { day: ForecastDay }) {
 export function WeatherCard() {
   const { weather, isLoading, error, refresh } = useWeather();
 
-  // Auto-load on mount
   useEffect(() => {
     refresh();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (isLoading) {
@@ -70,7 +67,6 @@ export function WeatherCard() {
 
   return (
     <div className="bg-gradient-to-br from-sky-500 to-blue-600 rounded-xl p-5 text-white shadow-[0_4px_20px_-4px_rgba(14,165,233,0.4)]">
-      {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div>
           <p className="text-xs font-semibold text-sky-100 uppercase tracking-wide mb-0.5">
@@ -88,9 +84,7 @@ export function WeatherCard() {
         </button>
       </div>
 
-      {/* Current temp */}
       <div className="flex items-center gap-3 mb-3">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={ICON_URL(current.icon)} alt={current.description} className="w-14 h-14 -ml-2 -my-2" />
         <div>
           <p className="text-4xl font-bold leading-none">{current.temp}°C</p>
@@ -98,7 +92,6 @@ export function WeatherCard() {
         </div>
       </div>
 
-      {/* Stats row */}
       <div className="flex items-center gap-4 text-xs text-sky-100 mb-4">
         <span><i className="fa-solid fa-droplet mr-1"></i>{current.humidity}%</span>
         <span><i className="fa-solid fa-wind mr-1"></i>{current.windSpeed} km/h</span>
@@ -109,7 +102,6 @@ export function WeatherCard() {
         )}
       </div>
 
-      {/* 3-day forecast */}
       <div className="flex gap-2">
         {forecast.map((day) => (
           <ForecastPill key={day.date} day={day} />

@@ -108,8 +108,8 @@ export function RecommendationsCard() {
   const top = recs[0];
 
   const handleAction = () => {
+    if (!top.action) return;
     addActivity(`Executed action: ${top.action.label}`, "info");
-    // Optionally trigger something else
   };
 
   return (

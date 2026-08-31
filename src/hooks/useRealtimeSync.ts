@@ -23,7 +23,6 @@ export function useRealtimeSync() {
       return;
     }
 
-    // 1. Fetch initial data
     const fetchInitialData = async () => {
       try {
         const [
@@ -61,7 +60,6 @@ export function useRealtimeSync() {
 
     fetchInitialData();
 
-    // 2. Setup Realtime subscriptions
     const sensorChannel = supabase
       .channel('sensor_readings_changes')
       .on(
@@ -75,7 +73,6 @@ export function useRealtimeSync() {
           if (row.lux != null) updateSensor('light', row.lux);
 
           useStore.setState({ lastSync: new Date() });
-          // Note: Alert processing and node tracking is now completely handled by the Database Trigger!
         }
       )
       .subscribe((status) => {
@@ -115,6 +112,5 @@ export function useRealtimeSync() {
       });
       useStore.setState({ realtimeStatus: 'disconnected' });
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }

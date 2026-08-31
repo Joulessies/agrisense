@@ -42,17 +42,15 @@ export function DatabaseView() {
       
       if (error) throw error;
       addActivity("Inserted test row successfully", "ok");
-      fetchRows(); // refresh table
+      fetchRows();
     } catch (err: any) {
       console.error(err);
       addActivity(`Failed to insert row: ${err.message}`, "warning");
     }
   };
 
-  // Fetch on mount
   useEffect(() => {
     fetchRows();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

@@ -1,4 +1,3 @@
--- Create sensor_settings table
 CREATE TABLE public.sensor_settings (
   id text primary key,
   optimal_min numeric not null,
@@ -14,7 +13,6 @@ CREATE POLICY "Sensor settings are viewable by everyone."
 CREATE POLICY "Sensor settings can be updated by everyone." 
   ON public.sensor_settings FOR UPDATE USING (true);
 
--- Insert initial thresholds
 INSERT INTO public.sensor_settings (id, optimal_min, optimal_max) VALUES
   ('soilMoisture', 20, 40),
   ('temperature', 25, 32),
@@ -22,5 +20,4 @@ INSERT INTO public.sensor_settings (id, optimal_min, optimal_max) VALUES
   ('light', 10000, 20000)
 ON CONFLICT (id) DO NOTHING;
 
--- Add to Realtime
 ALTER PUBLICATION supabase_realtime ADD TABLE public.sensor_settings;

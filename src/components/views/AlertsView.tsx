@@ -4,6 +4,21 @@ import React from "react";
 import { useStore } from "@/store/useStore";
 import { getStatus, formatNumber } from "@/lib/utils";
 
+const TONE_CLASSES = {
+  rose: {
+    border: "border-rose-200",
+    bg: "bg-rose-50",
+    icon: "text-rose-500",
+    badge: "bg-rose-100 text-rose-700",
+  },
+  amber: {
+    border: "border-amber-200",
+    bg: "bg-amber-50",
+    icon: "text-amber-500",
+    badge: "bg-amber-100 text-amber-700",
+  },
+} as const;
+
 export function AlertsView() {
   const { sensors, dismissedAlerts, dismissAlert, addActivity } = useStore();
 
@@ -75,22 +90,22 @@ export function AlertsView() {
 
       <div className="space-y-3">
         {liveAlerts.map((a) => {
-          const tone = a.severity === "critical" ? "rose" : "amber";
+          const tone = a.severity === "critical" ? TONE_CLASSES.rose : TONE_CLASSES.amber;
           return (
             <div
               key={a.sensorId}
-              className={`bg-white rounded-xl border border-${tone}-200 shadow-card p-5 flex items-start gap-4`}
+              className={`bg-white rounded-xl border ${tone.border} shadow-card p-5 flex items-start gap-4`}
             >
               <div
-                className={`w-11 h-11 rounded-lg bg-${tone}-50 flex items-center justify-center flex-shrink-0`}
+                className={`w-11 h-11 rounded-lg ${tone.bg} flex items-center justify-center flex-shrink-0`}
               >
-                <i className={`fa-solid fa-triangle-exclamation text-${tone}-500`}></i>
+                <i className={`fa-solid fa-triangle-exclamation ${tone.icon}`}></i>
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-sm font-semibold text-slate-900">{a.sensor}</p>
                   <span
-                    className={`text-[10px] font-semibold uppercase tracking-wide bg-${tone}-100 text-${tone}-700 px-2 py-0.5 rounded-full`}
+                    className={`text-[10px] font-semibold uppercase tracking-wide ${tone.badge} px-2 py-0.5 rounded-full`}
                   >
                     {a.severity}
                   </span>

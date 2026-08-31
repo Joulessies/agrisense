@@ -20,7 +20,6 @@ export function PlantStatusCard() {
   const { sensors } = useStore();
   const out = Object.values(sensors).filter((s) => getStatus(s) !== "ok");
 
-  // Compute vitality as average sensor score
   const scores = Object.values(sensors).map((s) => getSensorScore(s));
   const vitality = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
 

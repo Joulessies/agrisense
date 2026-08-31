@@ -34,13 +34,7 @@ export default function RootLayout({
           <meta name="apple-mobile-web-app-capable" content="yes" />
           <meta name="apple-mobile-web-app-status-bar-style" content="default" />
           <meta name="apple-mobile-web-app-title" content="AgriSense" />
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-                // Service worker registration temporarily disabled to prevent HMR infinite loops
-              `,
-            }}
-          />
+
         </head>
         <body
           className={`${inter.className} antialiased bg-slate-50 text-slate-900 overflow-x-hidden`}

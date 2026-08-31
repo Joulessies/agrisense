@@ -8,7 +8,7 @@ export function HarvestCard() {
   const { plant } = useStore();
   const { age, harvestAge } = plant;
   const ready = age >= harvestAge;
-  const progress = clamp((age / harvestAge) * 100, 0, 100);
+  const progress = harvestAge > 0 ? clamp((age / harvestAge) * 100, 0, 100) : 0;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">

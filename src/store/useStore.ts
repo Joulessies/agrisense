@@ -61,7 +61,7 @@ interface AppState {
   realtimeStatus: "connected" | "disconnected";
   currentView: string;
 
-  // Actions
+
   setCurrentView: (view: string) => void;
   setRole: (role: Role) => void;
   updateSensor: (id: string, value: number) => void;
@@ -71,7 +71,7 @@ interface AppState {
   clearSession: () => void;
   logout: () => Promise<void>;
 
-  // DB Sync Actions
+
   setNodes: (nodes: NodeItem[]) => void;
   setProfiles: (profiles: ProfileItem[]) => void;
   setPlant: (plant: { age: number; harvestAge: number }) => void;
@@ -169,12 +169,12 @@ export const useStore = create<AppState>((set) => ({
   addActivity: async (text, tone = "info") => {
     const timeStr = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     const newItem = { time: timeStr, text, tone };
-    // Optimistic update
+
     set((state) => {
       const newActivity = [newItem, ...state.activity].slice(0, 30);
       return { activity: newActivity };
     });
-    // Persist to database
+
     try {
       await supabase.from('activity_logs').insert([{ time: timeStr, text, tone }]);
     } catch (err) {

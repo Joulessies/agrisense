@@ -1,6 +1,3 @@
-// OpenWeatherMap API service
-// Docs: https://openweathermap.org/api/one-call-3
-
 const API_KEY = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY ?? '';
 const BASE_URL = 'https://api.openweathermap.org/data/2.5';
 
@@ -74,7 +71,7 @@ export async function fetchWeather(lat: number, lon: number): Promise<WeatherDat
       temp: Math.round(current.main.temp),
       feelsLike: Math.round(current.main.feels_like),
       humidity: current.main.humidity,
-      windSpeed: Math.round(current.wind.speed * 3.6), // m/s -> km/h
+      windSpeed: Math.round(current.wind.speed * 3.6),
       description: current.weather[0].description,
       icon: current.weather[0].icon,
       city: current.name,

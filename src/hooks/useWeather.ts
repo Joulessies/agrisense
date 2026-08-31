@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { fetchWeather, fetchWeatherByCity, WeatherData, isWeatherConfigured } from '@/services/weather';
 
-const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const CACHE_TTL_MS = 10 * 60 * 1000;
 const DEFAULT_CITY = process.env.NEXT_PUBLIC_DEFAULT_WEATHER_CITY ?? 'Manila';
 
 interface UseWeatherReturn {
@@ -47,7 +47,6 @@ export function useWeather(): UseWeatherReturn {
               }
             },
             async () => {
-              // Geolocation denied — fall back to city
               try {
                 resolve(await fetchWeatherByCity(DEFAULT_CITY));
               } catch (e) {

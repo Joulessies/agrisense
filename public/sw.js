@@ -1,7 +1,5 @@
-// AgriSense Service Worker — Cache-first strategy for the app shell
 const CACHE_NAME = 'agrisense-v1';
 
-// Static assets to pre-cache on install
 const PRECACHE_URLS = [
   '/',
   '/manifest.json',
@@ -15,7 +13,6 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  // Remove old caches
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))

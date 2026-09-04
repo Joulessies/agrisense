@@ -43,6 +43,20 @@ export interface ProfileItem {
   status: string;
 }
 
+export interface FarmLocation {
+  name: string;
+  country: string;
+  lat: number;
+  lon: number;
+  region?: string;
+}
+
+export interface FarmSettings {
+  potSize: 'small' | 'medium' | 'large_ground';
+  sunExposure: 'full' | 'partial' | 'shaded';
+  soilType: 'fast_draining' | 'standard' | 'clay';
+}
+
 interface AppState {
   role: Role;
   auth: {
@@ -61,6 +75,10 @@ interface AppState {
   realtimeStatus: "connected" | "disconnected";
   currentView: string;
 
+  farmLocation: FarmLocation;
+  farmSettings: FarmSettings;
+  manualWateringDays: number | null;
+  lastWateredDate: string | null;
 
   setCurrentView: (view: string) => void;
   setRole: (role: Role) => void;
@@ -71,12 +89,16 @@ interface AppState {
   clearSession: () => void;
   logout: () => Promise<void>;
 
-
   setNodes: (nodes: NodeItem[]) => void;
   setProfiles: (profiles: ProfileItem[]) => void;
   setPlant: (plant: { age: number; harvestAge: number }) => void;
   setActivity: (activity: ActivityItem[]) => void;
   setThresholds: (thresholds: Array<{ id: string; optimal_min: number; optimal_max: number }>) => void;
+
+  setFarmLocation: (loc: FarmLocation) => void;
+  setFarmSettings: (settings: Partial<FarmSettings>) => void;
+  setManualWateringDays: (days: number | null) => void;
+  recordWatering: () => Promise<void>;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -214,6 +236,21 @@ export const useStore = create<AppState>((set) => ({
     }));
   },
 
+  farmLocation: {
+    name: "Manila",
+    country: "PH",
+    lat: 14.5995,
+    lon: 120.9842,
+    region: "NCR / Central Luzon",
+  },
+  farmSettings: {
+    potSize: "medium",
+    sunExposure: "partial",
+    soilType: "standard",
+  },
+  manualWateringDays: null,
+  lastWateredDate: null,
+
   setNodes: (nodes) => set({ nodes }),
   setProfiles: (profiles) => set({ profiles }),
   setPlant: (plant) => set({ plant }),
@@ -230,4 +267,25 @@ export const useStore = create<AppState>((set) => ({
     });
     return { sensors: updatedSensors };
   }),
+
+  setFarmLocation: (loc) => set({ farmLocation: loc }),
+  setFarmSettings: (settings) => set((state) => ({
+    farmSettings: { ...state.farmSettings, ...settings },
+  })),
+  setManualWateringDays: (days) => set({ manualWateringDays: days }),
+  recordWatering: async () => {
+    const now = new Date().toISOString();
+    set((state) => ({
+      lastWateredDate: now,
+      manualWateringDays: 0,
+      sensors: {
+        ...state.sensors,
+        soilMoisture: {
+          ...state.sensors.soilMoisture,
+          value: Math.max(state.sensors.soilMoisture.value, 35),
+        },
+      },
+    }));
+    await useStore.getState().addActivity("Aloe vera watered — drought counter reset to Day 0", "ok");
+  },
 }));

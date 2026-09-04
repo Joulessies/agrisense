@@ -9,6 +9,7 @@ import { RecommendationsCard } from "@/components/ui/RecommendationsCard";
 import { ActivityFeed } from "@/components/ui/ActivityFeed";
 import { WeatherCard } from "@/components/ui/WeatherCard";
 import { AiInsightsCard } from "@/components/ui/AiInsightsCard";
+import { CropPredictionCard } from "@/components/ui/CropPredictionCard";
 import { getStatus } from "@/lib/utils";
 
 export function DashboardView() {
@@ -186,6 +187,8 @@ export function DashboardView() {
           <SensorCard key={sensor.id} sensor={sensor} />
         ))}
       </div>
+
+      <CropPredictionCard />
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
         <PlantStatusCard />

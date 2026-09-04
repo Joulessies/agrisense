@@ -53,7 +53,7 @@ export function WeatherCard() {
           {error ?? 'Add NEXT_PUBLIC_OPENWEATHER_API_KEY to .env.local'}
         </p>
         <button
-          onClick={refresh}
+          onClick={() => refresh()}
           className="text-xs text-agri-600 hover:underline mt-1 font-medium"
         >
           Try again
@@ -76,7 +76,7 @@ export function WeatherCard() {
           <p className="text-sm font-semibold text-white capitalize">{current.description}</p>
         </div>
         <button
-          onClick={refresh}
+          onClick={() => refresh()}
           className="text-white/60 hover:text-white transition"
           title="Refresh weather"
         >
@@ -103,7 +103,7 @@ export function WeatherCard() {
       </div>
 
       <div className="flex gap-2">
-        {forecast.map((day) => (
+        {forecast.slice(0, 3).map((day) => (
           <ForecastPill key={day.date} day={day} />
         ))}
       </div>

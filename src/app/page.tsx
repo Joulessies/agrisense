@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 
 import { DashboardView } from "@/components/views/DashboardView";
+import { PredictionsView } from "@/components/views/PredictionsView";
 import { AlertsView } from "@/components/views/AlertsView";
 import { SensorsView } from "@/components/views/SensorsView";
 
@@ -19,6 +20,7 @@ export default function Home() {
   const renderView = () => {
     switch (currentView) {
       case "dashboard": return <DashboardView />;
+      case "predictions": return <PredictionsView />;
       case "sensors": return <SensorsView />;
       case "alerts": return <AlertsView />;
       case "analytics": return <AnalyticsView />;

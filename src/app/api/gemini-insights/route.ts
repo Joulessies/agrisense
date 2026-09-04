@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? '';
 const GEMINI_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 interface SensorInput {
   value: number;
@@ -32,7 +32,7 @@ Respond ONLY with the raw JSON array — no markdown fences, no extra text.`;
 }
 
 export async function POST(req: NextRequest) {
-  if (!GEMINI_API_KEY || GEMINI_API_KEY.startsWith('AIza') === false) {
+  if (!GEMINI_API_KEY || GEMINI_API_KEY.includes('YOUR_') || GEMINI_API_KEY.length < 10) {
     return NextResponse.json({
       insights: [
         {

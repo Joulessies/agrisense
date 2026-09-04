@@ -15,6 +15,7 @@ export function Sidebar() {
 
   const mainNavItems = [
     { id: "dashboard", label: "Dashboard", icon: "fa-gauge-high" },
+    { id: "predictions", label: "Crop Predictor", icon: "fa-wand-magic-sparkles" },
     { id: "sensors", label: "Sensors", icon: "fa-microchip" },
     { id: "alerts", label: "Alerts", icon: "fa-bell", badge: activeAlertsCount },
     { id: "analytics", label: "Analytics", icon: "fa-chart-column" },

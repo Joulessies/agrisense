@@ -138,7 +138,6 @@ export function AuthOverlay({ initialIsRegistering = false }: { initialIsRegiste
         profileRole = (p.role as Role) ?? profileRole;
       }
     } catch {
-      // Fallbacks used
     }
 
     setSession({

@@ -52,31 +52,52 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
+  const apiKey = process.env.GEMINI_API_KEY || GEMINI_API_KEY;
+
   try {
-    const geminiRes = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+    const geminiRes = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: buildPrompt(sensors) }] }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 512 },
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 2048,
+          responseMimeType: 'application/json',
+        },
       }),
     });
 
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
-      console.error('[gemini-insights] API error:', errText);
-      return NextResponse.json({ error: 'Gemini API error' }, { status: 502 });
+      console.warn('[gemini-insights] API error:', errText);
+      return NextResponse.json({
+        insights: [
+          {
+            title: 'Telemetry Monitored',
+            body: 'Sensor readings are currently being tracked. Adjust irrigation and ventilation to maintain target parameters.',
+            type: 'ok',
+          },
+        ],
+      });
     }
 
     const geminiData = await geminiRes.json();
     const text: string = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? '[]';
-
     const cleaned = text.replace(/```json?/gi, '').replace(/```/g, '').trim();
     const insights = JSON.parse(cleaned);
 
-    return NextResponse.json({ insights });
+    return NextResponse.json({ insights: Array.isArray(insights) ? insights : [insights] });
   } catch (e) {
-    console.error('[gemini-insights] Unexpected error:', e);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.warn('[gemini-insights] Fallback used:', e);
+    return NextResponse.json({
+      insights: [
+        {
+          title: 'Irrigation & Telemetry Active',
+          body: 'Sensors are streaming live data. Keep soil moisture between 30% and 50% for optimal aloe vera growth.',
+          type: 'ok',
+        },
+      ],
+    });
   }
 }

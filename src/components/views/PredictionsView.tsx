@@ -49,7 +49,6 @@ export function PredictionsView() {
   const [selectedDayIdx, setSelectedDayIdx] = useState<number>(0);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiReport, setAiReport] = useState<any | null>(null);
-  const [aiLanguage, setAiLanguage] = useState<"tl" | "en">("tl");
 
   const prediction = useMemo(() => {
     if (!weather) return null;
@@ -643,7 +642,7 @@ export function PredictionsView() {
                 <div>
                   <span className="text-[10px] text-slate-400 uppercase font-semibold">Irrigation Interval</span>
                   <p className="text-xs font-bold text-white mt-0.5">
-                    {prediction?.seasonType === "tag_init" ? "Tag-init (7–10 days)" : "Tag-ulan (14–21 days)"}
+                    {prediction?.seasonType === "dry_season" ? "Dry Season (7–10 days)" : "Rainy Season (14–21 days)"}
                   </p>
                 </div>
                 <div className="text-right">
@@ -661,8 +660,8 @@ export function PredictionsView() {
                       <i className="fa-solid fa-circle-arrow-right text-[8px]"></i>
                       {act.priority} priority
                     </span>
-                    <p className="text-xs font-bold text-white">{act.tagalogAction}</p>
-                    <p className="text-[11px] text-slate-300 leading-relaxed">{act.tagalogReason}</p>
+                    <p className="text-xs font-bold text-white">{act.action}</p>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">{act.reason}</p>
                   </div>
                 ))}
               </div>
@@ -701,60 +700,60 @@ export function PredictionsView() {
               </h4>
               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-900">Mild Stress</span>
             </div>
-            <p className="text-slate-600 text-[11px]">Kapag hindi nadiligan sa matinding init:</p>
+            <p className="text-slate-600 text-[11px]">When irrigation is delayed in warm conditions:</p>
             <ul className="list-disc list-inside text-[11px] text-slate-700 space-y-1 pl-1">
-              <li>Leaves medyo numinipis (thinning)</li>
-              <li>Bahagyang lumalambot (slight softening)</li>
-              <li>Mabagal ang growth</li>
-              <li><strong>Mabilis makabawi</strong> kapag diniligan</li>
+              <li>Leaves begin thinning slightly</li>
+              <li>Slight softening of leaf tissue</li>
+              <li>Slowed vegetative growth</li>
+              <li><strong>Fast recovery</strong> once watered</li>
             </ul>
           </div>
 
           <div className="p-4 rounded-xl border border-orange-200 bg-orange-50/50 space-y-2.5">
             <div className="flex items-center justify-between">
               <h4 className="font-bold text-orange-900 flex items-center gap-1.5">
-                <span>❗</span> 15–21 Days (Matagal na Walang Tubig)
+                <span>❗</span> 15–21 Days (Prolonged Drought)
               </h4>
               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-200/80 text-orange-900">High Stress</span>
             </div>
-            <p className="text-slate-600 text-[11px]">Matagal nang walang tubig sa init:</p>
+            <p className="text-slate-600 text-[11px]">Extended duration without soil moisture:</p>
             <ul className="list-disc list-inside text-[11px] text-slate-700 space-y-1 pl-1">
-              <li>Leaves kulubot / shriveled</li>
-              <li>Tips nagiging brown o tuyo</li>
-              <li>Leaves maaaring bumagsak (drooping)</li>
-              <li><strong>Survival mode</strong> pero buhay pa</li>
+              <li>Leaves shriveled and wrinkled</li>
+              <li>Tips turn brown or dry out</li>
+              <li>Foliage begins drooping</li>
+              <li><strong>Survival mode</strong>; requires prompt watering</li>
             </ul>
           </div>
 
           <div className="p-4 rounded-xl border border-rose-200 bg-rose-50/50 space-y-2.5">
             <div className="flex items-center justify-between">
               <h4 className="font-bold text-rose-900 flex items-center gap-1.5">
-                <span>🚨</span> Lampas 3–4 Weeks (Severe Drought)
+                <span>🚨</span> Over 3–4 Weeks (Severe Drought)
               </h4>
               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-200/80 text-rose-900">Critical</span>
             </div>
-            <p className="text-slate-600 text-[11px]">Severe drought + matinding init:</p>
+            <p className="text-slate-600 text-[11px]">Severe drought and intense heat:</p>
             <ul className="list-disc list-inside text-[11px] text-slate-700 space-y-1 pl-1">
-              <li>Leaves sobrang nipis at tuyo</li>
-              <li>Ibabang mga dahon natutuyo at namamatay</li>
-              <li>May banta ng root damage</li>
-              <li><strong>Mataas ang chance</strong> na hindi na makarecover</li>
+              <li>Leaves extremely thin and dry</li>
+              <li>Lower leaves desiccate and die back</li>
+              <li>Risk of root system damage</li>
+              <li><strong>Low recovery chance</strong> without urgent care</li>
             </ul>
           </div>
 
           <div className="p-4 rounded-xl border border-purple-200 bg-purple-50/50 space-y-2.5">
             <div className="flex items-center justify-between">
               <h4 className="font-bold text-purple-900 flex items-center gap-1.5">
-                <span>🌧️</span> Overwatering / Tag-ulan
+                <span>🌧️</span> Overwatering / Excess Moisture
               </h4>
               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-200/80 text-purple-900">Root Rot Risk</span>
             </div>
-            <p className="text-slate-600 text-[11px]">Watered too often / persistent basang lupa:</p>
+            <p className="text-slate-600 text-[11px]">Watered too frequently or poorly draining substrate:</p>
             <ul className="list-disc list-inside text-[11px] text-slate-700 space-y-1 pl-1">
-              <li>Peligro ng <strong>Root rot</strong> (nabubulok ang ugat)</li>
-              <li>Yellow, soft, mushy leaves</li>
+              <li>Danger of <strong>Root rot</strong> from fungal pathogen decay</li>
+              <li>Yellow, soft, mushy leaf texture</li>
               <li>Plant may collapse and die</li>
-              <li>Tag-ulan interval: every 14–21 days</li>
+              <li>Rainy season interval: every 14–21 days</li>
             </ul>
           </div>
 
@@ -765,12 +764,12 @@ export function PredictionsView() {
               </h4>
               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-200/80 text-red-900">Heat / UV</span>
             </div>
-            <p className="text-slate-600 text-[11px]">Matinding sikat ng araw sa tanghali:</p>
+            <p className="text-slate-600 text-[11px]">Intense direct solar radiation at midday:</p>
             <ul className="list-disc list-inside text-[11px] text-slate-700 space-y-1 pl-1">
-              <li>Sunburn: mapula o brown na mga batik sa dahon</li>
-              <li>Curled & brown leaf tips sa init</li>
-              <li>Hindi gusto ang buong araw na direct sun</li>
-              <li>Maglagay ng 30–50% shade cloth</li>
+              <li>Sunburn: reddish or brown blemish spots on foliage</li>
+              <li>Curled and brown leaf tips from dry heat</li>
+              <li>Dislikes unshaded midday tropical sunlight</li>
+              <li>Provide 30–50% shade netting or morning sun only</li>
             </ul>
           </div>
 
@@ -781,12 +780,12 @@ export function PredictionsView() {
               </h4>
               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-cyan-200/80 text-cyan-900">Cold Stress</span>
             </div>
-            <p className="text-slate-600 text-[11px]">Bihira sa PH maliban sa highland areas:</p>
+            <p className="text-slate-600 text-[11px]">Cold microclimates or highland elevations:</p>
             <ul className="list-disc list-inside text-[11px] text-slate-700 space-y-1 pl-1">
-              <li>Titigil o babagal ang paglaki ng aloe</li>
-              <li>Leaves soften from cold temperature</li>
-              <li>Tumatataas ang banta ng rot kapag basa</li>
-              <li>Iwasan ang pagdilig tuwing malamig</li>
+              <li>Growth halts or slows dramatically</li>
+              <li>Leaves soften from cold temperatures</li>
+              <li>High risk of rotting if soil remains wet</li>
+              <li>Minimize or halt watering during cold weather</li>
             </ul>
           </div>
         </div>
@@ -807,27 +806,6 @@ export function PredictionsView() {
           </div>
 
           <div className="flex items-center gap-3">
-            {aiReport && (
-              <div className="bg-white/10 rounded-xl p-0.5 flex items-center text-xs border border-white/10">
-                <button
-                  onClick={() => setAiLanguage("tl")}
-                  className={`px-3 py-1 rounded-lg transition font-medium ${
-                    aiLanguage === "tl" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-300 hover:text-white"
-                  }`}
-                >
-                  🇵🇭 Tagalog
-                </button>
-                <button
-                  onClick={() => setAiLanguage("en")}
-                  className={`px-3 py-1 rounded-lg transition font-medium ${
-                    aiLanguage === "en" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-300 hover:text-white"
-                  }`}
-                >
-                  🇺🇸 English
-                </button>
-              </div>
-            )}
-
             <button
               onClick={handleGenerateAiPrognosis}
               disabled={isAiLoading}
@@ -853,7 +831,7 @@ export function PredictionsView() {
 
             <div className="space-y-2 bg-black/20 rounded-xl p-4 border border-white/5">
               <p className="text-sm font-medium text-white leading-relaxed">
-                {aiLanguage === "tl" ? aiReport.tagalogPrognosis : aiReport.prognosis}
+                {aiReport.prognosis}
               </p>
             </div>
 
@@ -863,7 +841,7 @@ export function PredictionsView() {
                   Primary Agronomist Action
                 </span>
                 <p className="text-xs font-bold text-white">
-                  {aiLanguage === "tl" ? aiReport.tagalogRecommendedAction : aiReport.recommendedAction}
+                  {aiReport.recommendedAction}
                 </p>
               </div>
 

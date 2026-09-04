@@ -29,7 +29,7 @@ export interface DailyPrediction {
 
 export interface CropPredictionOutcome {
   currentDaysWithoutWater: number;
-  seasonType: 'tag_init' | 'tag_ulan';
+  seasonType: 'dry_season' | 'rainy_season';
   recommendedWateringIntervalDays: number;
   nextRecommendedWateringDate: string;
   daysUntilWaterRequired: number;
@@ -102,25 +102,25 @@ export function predictCropOutcomes(
 
   const totalRainMm = weather.summary.totalRainExpectedMm;
   const isTagUlan = totalRainMm > 15 || weather.summary.rainExpectedDays >= 3;
-  const seasonType = isTagUlan ? 'tag_ulan' : 'tag_init';
+  const seasonType: 'dry_season' | 'rainy_season' = isTagUlan ? 'rainy_season' : 'dry_season';
 
   const maxWateringInterval = isTagUlan ? 18 : 8;
 
   const aggravatingFactors: string[] = [];
   if (settings.sunExposure === 'full') {
-    aggravatingFactors.push('Full sun exposure buong araw — mabilis maubos ang reserbang moisture');
+    aggravatingFactors.push('Full sun exposure all day — accelerated soil moisture depletion');
   }
   if (settings.potSize === 'small') {
-    aggravatingFactors.push('Maliit ang pot — mabilis uminit at matuyo ang root ball');
+    aggravatingFactors.push('Small container size — root ball heats up and dries rapidly');
   }
   if (settings.soilType === 'fast_draining') {
-    aggravatingFactors.push('Mabilis matuyo ang lupa (sandy / coarse mix)');
+    aggravatingFactors.push('Rapid drainage substrate (sandy / coarse perlite mix)');
   }
   if (weather.summary.heatStressDays > 0) {
-    aggravatingFactors.push(`May ${weather.summary.heatStressDays} araw na aabot sa ≥35°C ang temperatura`);
+    aggravatingFactors.push(`${weather.summary.heatStressDays} upcoming day(s) with peak heat ≥ 35°C`);
   }
   if (weather.summary.highUvDays > 0 && settings.sunExposure !== 'shaded') {
-    aggravatingFactors.push('Mataas ang UV index sa tanghali — walang shade cloth');
+    aggravatingFactors.push('Extreme UV index at midday with no shade netting');
   }
 
   let runningMoisture = currentSoilMoisture;
@@ -251,13 +251,13 @@ function evaluateAloeCondition(
   const alerts: string[] = [];
 
   if (soilMoisture > 55 || (soilMoisture > 45 && daysWithoutWater <= 2)) {
-    alerts.push('Peligro ng Root Rot: Masyadong babad ang lupa sa tubig.');
+    alerts.push('Root Rot Risk: Soil is saturated with water.');
     return {
       stress: 'overwatering',
       condition: 'Overwatered / Root Rot Risk',
-      tagalogCondition: 'Sobra sa Tubig / Nanganganib mabulok ang ugat',
+      tagalogCondition: 'Overwatered / Root Rot Risk',
       description: 'Persistent moisture prevents oxygen reaching aloe roots, risking deadly fungal root rot.',
-      tagalogDescription: 'Masyadong basâ ang lupa. Kapag nagpatuloy, mabubulok ang ugat at magiging kulay dilaw at malambot/mushy ang dahon.',
+      tagalogDescription: 'Persistent moisture prevents oxygen reaching aloe roots, risking deadly fungal root rot.',
       leafSymptom: {
         thickness: 'Plump & Thick',
         texture: 'Mushy / Translucent',
@@ -271,20 +271,20 @@ function evaluateAloeCondition(
   }
 
   if (tempMax >= 35) {
-    alerts.push(`Mataas na Temperatura (${tempMax}°C): Heat stress sa dahon.`);
+    alerts.push(`High Temperature (${tempMax}°C): Heat stress on foliage.`);
   }
   if (tempMin <= 12) {
-    alerts.push(`Mababang Temperatura (${tempMin}°C): Cold stress sa aloe.`);
+    alerts.push(`Low Temperature (${tempMin}°C): Cold stress on aloe crop.`);
   }
 
   if (daysWithoutWater >= 22) {
-    alerts.push('Lampas 3-4 linggong walang tubig sa matinding init!');
+    alerts.push('Critical Drought: Over 3–4 weeks without water in high temperatures.');
     return {
       stress: 'critical_drought',
       condition: 'Critical Condition (Severe Drought)',
-      tagalogCondition: 'Kritikal na Kondisyon (Lampas 3–4 Weeks)',
+      tagalogCondition: 'Critical Condition (Severe Drought)',
       description: 'Severe drought and high heat: leaves are desiccated, bottom foliage dying, root system damaged.',
-      tagalogDescription: 'Sobrang nipis ng dahon, natutuyo at namamatay ang ibabang mga dahon. Posibleng nasira na ang ugat at mababa ang tiyansang makarecover kapag hindi naagapan.',
+      tagalogDescription: 'Severe drought and high heat: leaves are desiccated, bottom foliage dying, root system damaged.',
       leafSymptom: {
         thickness: 'Severely Thin / Dried',
         texture: 'Brittle',
@@ -298,13 +298,13 @@ function evaluateAloeCondition(
   }
 
   if (daysWithoutWater >= 15) {
-    alerts.push('15–21 araw na walang dilig: Plant is in survival mode.');
+    alerts.push('15–21 days without water: Plant is in survival mode.');
     return {
       stress: 'high_stress',
       condition: 'High Stress (Survival Mode)',
-      tagalogCondition: 'Mataas na Stress pero Buhay Pa (15–21 Days)',
+      tagalogCondition: 'High Stress (Survival Mode)',
       description: 'Leaves shriveling, tips turning brown, leaves may droop. Plant is conserving emergency moisture.',
-      tagalogDescription: 'Kulubot at shriveled na ang dahon, nagiging brown ang dulo (tips), at maaaring bumagsak. Nasa survival mode na ang aloe pero buhay pa at kayang iligtas.',
+      tagalogDescription: 'Leaves shriveling, tips turning brown, leaves may droop. Plant is conserving emergency moisture.',
       leafSymptom: {
         thickness: 'Thin & Flat',
         texture: 'Shriveled / Wrinkled',
@@ -318,13 +318,13 @@ function evaluateAloeCondition(
   }
 
   if (daysWithoutWater >= 10) {
-    alerts.push('10–14 araw na walang dilig: Medyo delayed watering.');
+    alerts.push('10–14 days without water: Mild water stress detected.');
     return {
       stress: 'mild_water_stress',
       condition: 'Mild Water Stress',
-      tagalogCondition: 'Medyo Delayed Watering (10–14 Days)',
+      tagalogCondition: 'Mild Water Stress',
       description: 'Leaves slightly thinning and softening, growth slowed down. Completely recoverable once watered.',
-      tagalogDescription: 'Medyo numinipis at bahagyang lumalambot ang mga dahon. Mabagal ang growth ngunit mabilis makakabawi kapag diniligan.',
+      tagalogDescription: 'Leaves slightly thinning and softening, growth slowed down. Completely recoverable once watered.',
       leafSymptom: {
         thickness: 'Slightly Thin',
         texture: 'Slightly Soft',
@@ -341,9 +341,9 @@ function evaluateAloeCondition(
     return {
       stress: 'heat_stress',
       condition: 'Extreme Heat Stress',
-      tagalogCondition: 'Sobrang Init ng Panahon (>35°C)',
+      tagalogCondition: 'Extreme Heat Stress',
       description: 'Prolonged high ambient heat causing brown tip drying and leaf curling.',
-      tagalogDescription: 'Dahil lampas 35°C ang init, matutuyo ang dulo ng dahon at kukulo o liliit ang katawan ng aloe. Magbigay ng shade at diligin sa madaling araw.',
+      tagalogDescription: 'Prolonged high ambient heat causing brown tip drying and leaf curling.',
       leafSymptom: {
         thickness: 'Slightly Thin',
         texture: 'Firm & Turgid',
@@ -357,13 +357,13 @@ function evaluateAloeCondition(
   }
 
   if (uvIndex >= 8 && settings.sunExposure === 'full') {
-    alerts.push('Babala sa Sunburn: Harsh midday direct sun.');
+    alerts.push('Sunburn Warning: Intense midday direct solar radiation.');
     return {
       stress: 'sunburn',
       condition: 'Sunburn Exposure Risk',
-      tagalogCondition: 'Peligro ng Pagkasunog sa Araw (Sunburn)',
+      tagalogCondition: 'Sunburn Exposure Risk',
       description: 'Full midday sun exposure can cause reddish-brown discoloration and scorched leaf tissue.',
-      tagalogDescription: 'Hindi gusto ng aloe vera ang matinding sikat ng araw buong araw. Nagiging mapula o brown ang dahon kapag nasobrahan sa araw sa tanghali.',
+      tagalogDescription: 'Full midday sun exposure can cause reddish-brown discoloration and scorched leaf tissue.',
       leafSymptom: {
         thickness: 'Plump & Thick',
         texture: 'Firm & Turgid',
@@ -379,10 +379,10 @@ function evaluateAloeCondition(
   if (tempMin <= 12) {
     return {
       stress: 'cold_stress',
-      condition: 'Cold Stress (Highland Area)',
-      tagalogCondition: 'Cold Stress (Malamig na Klima)',
+      condition: 'Cold Stress (Low Temperatures)',
+      tagalogCondition: 'Cold Stress (Low Temperatures)',
       description: 'Growth arrested and leaves softening due to low temperatures under 12°C.',
-      tagalogDescription: 'Mababa ang temperatura. Titigil ang paglaki at lalambot ang dahon. Bawasan ang pagdidilig upang maiwasan ang mabulok ang ugat.',
+      tagalogDescription: 'Growth arrested and leaves softening due to low temperatures under 12°C.',
       leafSymptom: {
         thickness: 'Plump & Thick',
         texture: 'Slightly Soft',
@@ -399,9 +399,9 @@ function evaluateAloeCondition(
     return {
       stress: 'monitor',
       condition: 'Approaching Watering Interval',
-      tagalogCondition: 'Nalalapit na sa Diligan (7–9 Days)',
+      tagalogCondition: 'Approaching Watering Interval',
       description: 'Approaching the 7-10 day dry season threshold. Prepare to water in the coming 24-48 hours.',
-      tagalogDescription: 'Nasa 7–9 na araw nang walang dilig. Maghandang diligan sa darating na 1–2 araw lalo na kapag mainit ang panahon.',
+      tagalogDescription: 'Approaching the 7-10 day dry season threshold. Prepare to water in the coming 24-48 hours.',
       leafSymptom: {
         thickness: 'Plump & Thick',
         texture: 'Firm & Turgid',
@@ -417,9 +417,9 @@ function evaluateAloeCondition(
   return {
     stress: 'optimal',
     condition: 'Optimal Plant Health',
-    tagalogCondition: 'Napakalusog at Matatag',
+    tagalogCondition: 'Optimal Plant Health',
     description: 'Soil moisture and weather conditions are well balanced for succulent growth.',
-    tagalogDescription: 'Sapat ang tubig at maayos ang kalagayan ng aloe vera. Makakapal, matigas, at malusog ang mga dahon.',
+    tagalogDescription: 'Soil moisture and weather conditions are well balanced for succulent growth.',
     leafSymptom: {
       thickness: 'Plump & Thick',
       texture: 'Firm & Turgid',
@@ -447,9 +447,9 @@ function buildActionPlan(
     plan.push({
       priority: 'high',
       action: 'Withhold all watering immediately and check drainage',
-      tagalogAction: 'Itigil agad ang pagdidilig at suriin ang drainage ng paso',
+      tagalogAction: 'Withhold all watering immediately and check drainage',
       reason: 'Root rot can kill the aloe plant within days if soil stays waterlogged.',
-      tagalogReason: 'Madaling mabulok ang ugat (root rot) kapag babad sa tubig. Pababain muna ang lupa sa ilalim ng 30%.',
+      tagalogReason: 'Root rot can kill the aloe plant within days if soil stays waterlogged. Allow soil to dry below 30%.',
     });
     return plan;
   }
@@ -458,9 +458,9 @@ function buildActionPlan(
     plan.push({
       priority: 'high',
       action: 'Emergency deep soak and move to filtered shade',
-      tagalogAction: 'I-emergency soak sa tubig at ilagay sa malilim na lugar',
+      tagalogAction: 'Emergency deep soak and move to filtered shade',
       reason: 'Plant is desiccated past 3-4 weeks. Gentle bottom-watering allows damaged roots to drink without rot shock.',
-      tagalogReason: 'Lampas 3-4 linggong walang tubig. Diligan nang dahan-dahan at ilagay sa lilim para hindi lalong masunog ang natitirang dahon.',
+      tagalogReason: 'Plant is desiccated past 3-4 weeks. Gentle watering and shade protection prevent further foliage loss.',
     });
     return plan;
   }
@@ -469,17 +469,17 @@ function buildActionPlan(
     plan.push({
       priority: 'high',
       action: 'Thoroughly water plant today before noon',
-      tagalogAction: 'Diligan nang sagana ang aloe vera ngayong araw bago magtanghali',
+      tagalogAction: 'Thoroughly water plant today before noon',
       reason: 'Plant has entered survival mode with shriveling leaves and brown tips.',
-      tagalogReason: '15–21 araw nang walang tubig. Kailangan nang diligan agad upang mabawi ang kulubot na dahon at maiwasan ang tuluyang pagkatuyo.',
+      tagalogReason: '15–21 days without water. Immediate thorough irrigation is required to restore shriveled leaves.',
     });
     if (settings.sunExposure === 'full') {
       plan.push({
         priority: 'medium',
         action: 'Provide temporary midday shade cloth',
-        tagalogAction: 'Maglagay ng shade cloth tuwing 11 AM – 2 PM',
+        tagalogAction: 'Provide temporary midday shade cloth',
         reason: 'Prevents intense sun from scorching already stressed, thinned leaves.',
-        tagalogReason: 'Ilayo sa matinding sikat ng araw ng tanghali habang nagrerecover ang dahon.',
+        tagalogReason: 'Shield from harsh midday direct sun while foliage rehydrates.',
       });
     }
     return plan;
@@ -489,9 +489,9 @@ function buildActionPlan(
     plan.push({
       priority: 'high',
       action: 'Water the aloe vera within the next 24–48 hours',
-      tagalogAction: 'Diligan ang aloe vera sa susunod na 1–2 araw',
+      tagalogAction: 'Water the aloe vera within the next 24–48 hours',
       reason: 'Leaves are slightly softening and thinning; watering now ensures immediate recovery.',
-      tagalogReason: 'Nagsisimula nang numipis at lumambot ang dahon. Mabilis itong makakabawi kapag nadiligan na.',
+      tagalogReason: 'Leaves are beginning to thin and soften; prompt irrigation restores optimal turgidity.',
     });
     return plan;
   }
@@ -502,17 +502,17 @@ function buildActionPlan(
       plan.push({
         priority: 'medium',
         action: 'Rain is forecast in the next 1–3 days: Hold off manual watering',
-        tagalogAction: 'May paparating na ulan sa susunod na 1–3 araw: Huwag munang diligan',
+        tagalogAction: 'Rain is forecast in the next 1–3 days: Hold off manual watering',
         reason: 'Forecasted natural rainfall will hydrate the crop without risk of overwatering.',
-        tagalogReason: 'Sapat ang ulan na darating para mabasa ang lupa. Maiiwasan ang overwatering.',
+        tagalogReason: 'Forecasted natural rainfall will hydrate the crop without risk of overwatering.',
       });
     } else {
       plan.push({
         priority: 'medium',
-        action: 'Hot season continues: Schedule watering in 1–2 days',
-        tagalogAction: 'Magpapatuloy ang tag-init: Mag-iskedyul ng pagdilig sa susunod na 1–2 araw',
+        action: 'Dry season continues: Schedule watering in 1–2 days',
+        tagalogAction: 'Dry season continues: Schedule watering in 1–2 days',
         reason: 'Crop has had 1 week without rain or water. Avoid letting it reach the 10-day stress threshold.',
-        tagalogReason: 'Isang linggo na itong walang ulan o dilig. Diligan na bago lumampas sa 10 araw.',
+        tagalogReason: 'Crop has had 1 week without rain or water. Irrigate before exceeding the 10-day dry season interval.',
       });
     }
     return plan;
@@ -522,17 +522,17 @@ function buildActionPlan(
     plan.push({
       priority: 'low',
       action: 'Shield from harsh midday sunlight (11 AM to 2 PM)',
-      tagalogAction: 'Protektahan sa matinding araw ng tanghali (11 AM – 2 PM)',
+      tagalogAction: 'Shield from harsh midday sunlight (11 AM to 2 PM)',
       reason: 'Aloe vera thrives in bright indirect light and dislikes harsh all-day direct radiation.',
-      tagalogReason: 'Hindi gusto ng aloe vera ang buong araw na nakabilad sa matinding init.',
+      tagalogReason: 'Aloe vera thrives in bright indirect light and dislikes harsh all-day direct radiation.',
     });
   } else {
     plan.push({
       priority: 'low',
       action: 'Normal monitoring: Soil is adequately hydrated',
-      tagalogAction: 'Normal na pagmamanman: Sapat at maganda ang tubig sa lupa',
+      tagalogAction: 'Normal monitoring: Soil is adequately hydrated',
       reason: `Current watering interval is healthy. Next check recommended in ${Math.max(1, 8 - daysWithoutWater)} days.`,
-      tagalogReason: `Nasa maayos na estado ang pananim. Muling suriin makalipas ang ${Math.max(1, 8 - daysWithoutWater)} araw.`,
+      tagalogReason: `Current watering interval is healthy. Next check recommended in ${Math.max(1, 8 - daysWithoutWater)} days.`,
     });
   }
 

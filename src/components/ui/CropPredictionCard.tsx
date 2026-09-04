@@ -76,7 +76,7 @@ export function CropPredictionCard() {
           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${badgeConfig.bg}`}>
             <span className={`w-2 h-2 rounded-full ${badgeConfig.dot} animate-pulse`}></span>
             <i className={`fa-solid ${badgeConfig.icon} text-xs`}></i>
-            {overallStatus.tagalogTitle}
+            {overallStatus.title}
           </span>
         </div>
       </div>
@@ -87,7 +87,7 @@ export function CropPredictionCard() {
             <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
               <span className="font-semibold uppercase tracking-wider text-[10px]">Drought Tracker</span>
               <span className="text-xs font-medium text-slate-400 capitalize">
-                {seasonType === "tag_init" ? "☀️ Tag-init (7–10 days)" : "🌧️ Tag-ulan (14–21 days)"}
+                {seasonType === "dry_season" ? "☀️ Dry Season (7–10 days)" : "🌧️ Rainy Season (14–21 days)"}
               </span>
             </div>
             <div className="flex items-baseline gap-2 mt-2">
@@ -169,7 +169,7 @@ export function CropPredictionCard() {
             <div className="mt-2">
               <p className="text-sm font-bold text-slate-800 line-clamp-1">{overallStatus.title}</p>
               <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">
-                {overallStatus.tagalogDescription}
+                {overallStatus.description}
               </p>
             </div>
           </div>
@@ -189,10 +189,10 @@ export function CropPredictionCard() {
           <div>
             <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Agronomist Recommendation</p>
             <p className="text-sm font-medium text-slate-100 mt-0.5">
-              {topAction ? topAction.tagalogAction : "Ipagpatuloy ang regular na pag-monitor."}
+              {topAction ? topAction.action : "Continue regular soil and microclimate monitoring."}
             </p>
             <p className="text-xs text-slate-400 mt-0.5">
-              {topAction ? topAction.tagalogReason : "Nasa maayos na balanse ang lupa at pananim."}
+              {topAction ? topAction.reason : "Soil moisture and telemetry are balanced."}
             </p>
           </div>
         </div>

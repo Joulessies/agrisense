@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useStore } from "@/store/useStore";
 import { SensorCard } from "@/components/ui/SensorCard";
 import { PlantStatusCard } from "@/components/ui/PlantStatusCard";
@@ -10,10 +10,28 @@ import { ActivityFeed } from "@/components/ui/ActivityFeed";
 import { WeatherCard } from "@/components/ui/WeatherCard";
 import { AiInsightsCard } from "@/components/ui/AiInsightsCard";
 import { CropPredictionCard } from "@/components/ui/CropPredictionCard";
-import { getStatus } from "@/lib/utils";
+import { AloeVitalityCard } from "@/components/ui/AloeVitalityCard";
+import { AloeCareMatrixModal } from "@/components/ui/AloeCareMatrixModal";
+import { FarmHealthReportModal } from "@/components/ui/FarmHealthReportModal";
+import { LiveHardwareConnectModal } from "@/components/ui/LiveHardwareConnectModal";
+import { getStatus, calculateAloeVitality } from "@/lib/utils";
 
 export function DashboardView() {
-  const { auth, role, sensors, plant, nodes, profiles, setCurrentView, addActivity } = useStore();
+  const {
+    auth,
+    role,
+    sensors,
+    plant,
+    nodes,
+    profiles,
+    setCurrentView,
+    syncNow,
+    isSyncing,
+    realtimeStatus,
+    livePacketCount,
+    streamLatency,
+    lanIp,
+  } = useStore();
 
   const userName = auth.currentUser?.name?.split(" ")[0] || "User";
   const userCount = profiles.length;
@@ -23,10 +41,25 @@ export function DashboardView() {
   const outOfRangeCount = Object.values(sensors).filter((s) => getStatus(s) !== "ok").length;
   const optimalCount = Object.values(sensors).length - outOfRangeCount;
 
-  const handleQuickRefresh = () => {
-    useStore.setState({ lastSync: new Date() });
-    addActivity("Dashboard sensors refreshed", "info");
+  const [showCareMatrix, setShowCareMatrix] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const { score: vitalityScore, status: vitalityStatus } = calculateAloeVitality(sensors);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const timer = setInterval(() => {
+      syncNow();
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [autoRefresh, syncNow]);
+
+  const handleQuickRefresh = async () => {
+    await syncNow();
   };
+
+  const isConnected = realtimeStatus === "connected";
 
   return (
     <section className="p-8 space-y-6">
@@ -47,34 +80,112 @@ export function DashboardView() {
           <p className="text-sm text-slate-500">
             {role === "admin"
               ? "System telemetry, user access, and greenhouse environment controls."
-              : "Live monitoring and smart agronomist recommendations for your aloe vera crop."}
+              : "Live monitoring and smart AGI agronomist recommendations for your aloe vera crop."}
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={handleQuickRefresh}
-            className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-sm font-medium text-slate-700 shadow-sm flex items-center gap-2 transition"
+            type="button"
+            onClick={() => setShowConnectModal(true)}
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition cursor-pointer border ${
+              isConnected
+                ? "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 shadow-xs"
+                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 shadow-xs"
+            }`}
+            title="Configure ESP32 hardware IP and live streaming parameters"
           >
-            <i className="fa-solid fa-arrows-rotate text-xs text-agri-600"></i> Refresh Data
+            <span className="relative flex h-2 w-2">
+              {isConnected && (
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              )}
+              <span
+                className={`relative inline-flex rounded-full h-2 w-2 ${
+                  isConnected ? "bg-emerald-500" : "bg-slate-400"
+                }`}
+              ></span>
+            </span>
+            <i className="fa-solid fa-wifi text-xs text-agri-600"></i>
+            <span>{isConnected ? "Hardware Live Link" : "Connect ESP32"}</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer border ${
+              autoRefresh
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                : "bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200"
+            }`}
+            title="Toggle high-speed background telemetry polling"
+          >
+            <span className="relative flex h-2 w-2">
+              {autoRefresh && (
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              )}
+              <span
+                className={`relative inline-flex rounded-full h-2 w-2 ${
+                  autoRefresh ? "bg-emerald-500" : "bg-slate-400"
+                }`}
+              ></span>
+            </span>
+            <span>Live: {autoRefresh ? "4s" : "Manual"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleQuickRefresh}
+            disabled={isSyncing}
+            className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-sm font-medium text-slate-700 shadow-sm flex items-center gap-2 transition disabled:opacity-60 cursor-pointer"
+          >
+            <i className={`fa-solid fa-arrows-rotate text-xs text-agri-600 ${isSyncing ? "animate-spin" : ""}`}></i>
+            <span>{isSyncing ? "Refreshing..." : "Refresh Data"}</span>
+          </button>
+
           {role === "admin" ? (
             <button
               onClick={() => setCurrentView("users")}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-sm flex items-center gap-2 transition"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-sm flex items-center gap-2 transition cursor-pointer"
             >
               <i className="fa-solid fa-user-gear text-xs"></i> Manage Users
             </button>
           ) : (
             <button
               onClick={() => setCurrentView("alerts")}
-              className="px-4 py-2 bg-agri-600 hover:bg-agri-700 text-white rounded-xl text-sm font-semibold shadow-sm flex items-center gap-2 transition"
+              className="px-4 py-2 bg-agri-600 hover:bg-agri-700 text-white rounded-xl text-sm font-semibold shadow-sm flex items-center gap-2 transition cursor-pointer"
             >
               <i className="fa-solid fa-bell text-xs"></i> View Alerts ({outOfRangeCount})
             </button>
           )}
         </div>
       </div>
+
+      {isConnected && (
+        <div className="bg-emerald-50 border border-emerald-200/80 rounded-2xl px-5 py-3 flex flex-wrap items-center justify-between gap-3 text-xs text-emerald-900 shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
+            <span className="font-bold text-emerald-950">Real-Time Telemetry Streaming Active</span>
+            <span className="text-emerald-400 hidden sm:inline">•</span>
+            <span className="text-emerald-700 hidden sm:inline">
+              Hardware node ({lanIp || "ESP32"}) synchronized with Supabase Realtime
+            </span>
+          </div>
+          <div className="flex items-center gap-3 font-mono text-[11px] text-emerald-800">
+            <span>Packets: <strong className="text-emerald-950">{livePacketCount}</strong></span>
+            {streamLatency != null && <span>Latency: <strong className="text-emerald-950">{streamLatency}ms</strong></span>}
+            <button
+              type="button"
+              onClick={() => setShowConnectModal(true)}
+              className="underline hover:text-emerald-950 font-sans font-semibold cursor-pointer ml-1"
+            >
+              Stream Settings
+            </button>
+          </div>
+        </div>
+      )}
 
       {role === "admin" ? (
         <div className="bg-gradient-to-r from-indigo-700 via-indigo-600 to-blue-600 rounded-2xl p-6 text-white shadow-lg">
@@ -91,19 +202,19 @@ export function DashboardView() {
                 <div className="flex flex-wrap items-center gap-3 mt-3">
                   <button
                     onClick={() => setCurrentView("users")}
-                    className="text-xs bg-white/20 hover:bg-white/30 text-white font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5"
+                    className="text-xs bg-white/20 hover:bg-white/30 text-white font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer"
                   >
                     <i className="fa-solid fa-users text-xs"></i> Users Directory
                   </button>
                   <button
                     onClick={() => setCurrentView("settings")}
-                    className="text-xs bg-white/20 hover:bg-white/30 text-white font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5"
+                    className="text-xs bg-white/20 hover:bg-white/30 text-white font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer"
                   >
                     <i className="fa-solid fa-sliders text-xs"></i> Configure Thresholds
                   </button>
                   <button
                     onClick={() => setCurrentView("database")}
-                    className="text-xs bg-white/20 hover:bg-white/30 text-white font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5"
+                    className="text-xs bg-white/20 hover:bg-white/30 text-white font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer"
                   >
                     <i className="fa-solid fa-database text-xs"></i> Database Logs
                   </button>
@@ -142,19 +253,19 @@ export function DashboardView() {
                 <div className="flex flex-wrap items-center gap-3 mt-3">
                   <button
                     onClick={() => setCurrentView("sensors")}
-                    className="text-xs bg-white/20 hover:bg-white/30 text-white font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5"
+                    className="text-xs bg-white/20 hover:bg-white/30 text-white font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer"
                   >
                     <i className="fa-solid fa-microchip text-xs"></i> Check Sensor Nodes
                   </button>
                   <button
                     onClick={() => setCurrentView("analytics")}
-                    className="text-xs bg-white/20 hover:bg-white/30 text-white font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5"
+                    className="text-xs bg-white/20 hover:bg-white/30 text-white font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer"
                   >
                     <i className="fa-solid fa-chart-line text-xs"></i> View Analytics
                   </button>
                   <button
                     onClick={() => setCurrentView("settings")}
-                    className="text-xs bg-white/20 hover:bg-white/30 text-white font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5"
+                    className="text-xs bg-white/20 hover:bg-white/30 text-white font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer"
                   >
                     <i className="fa-solid fa-circle-info text-xs"></i> Target Thresholds
                   </button>
@@ -182,6 +293,11 @@ export function DashboardView() {
         </div>
       )}
 
+      <AloeVitalityCard
+        onOpenMatrix={() => setShowCareMatrix(true)}
+        onOpenReport={() => setShowReportModal(true)}
+      />
+
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
         {Object.values(sensors).map((sensor) => (
           <SensorCard key={sensor.id} sensor={sensor} />
@@ -202,6 +318,18 @@ export function DashboardView() {
       </div>
 
       <ActivityFeed />
+
+      <AloeCareMatrixModal isOpen={showCareMatrix} onClose={() => setShowCareMatrix(false)} />
+      <FarmHealthReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        vitalityScore={vitalityScore}
+        vitalityStatus={vitalityStatus}
+      />
+      <LiveHardwareConnectModal
+        isOpen={showConnectModal}
+        onClose={() => setShowConnectModal(false)}
+      />
     </section>
   );
 }

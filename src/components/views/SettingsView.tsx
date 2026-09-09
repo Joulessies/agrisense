@@ -48,7 +48,7 @@ const PRESETS: Record<string, { label: string; description: string; values: Reco
 };
 
 export function SettingsView() {
-  const { role, sensors, plant, setPlant, addActivity, setThresholds } = useStore();
+  const { role, sensors, plant, setPlant, addActivity, setThresholds, audioAlertsEnabled, setAudioAlertsEnabled, playAlertChime } = useStore();
   const isAdmin = role === "admin";
 
   const [plantAge, setLocalPlantAge] = useState(plant.age || 180);
@@ -106,16 +106,17 @@ export function SettingsView() {
     setSavingPlant(true);
     try {
       setPlant({ age: plantAge, harvestAge });
-      await supabase.from("plant_info").upsert([
+      const { error } = await supabase.from("plant_info").upsert([
         {
           id: 1,
           age: plantAge,
           harvest_age: harvestAge,
-          variety: "Aloe Barbadensis Miller",
         },
       ]);
+      if (error) throw error;
       addActivity(`Updated crop timeline: ${plantAge} days / ${harvestAge} days target`, "ok");
-    } catch {
+    } catch (err: any) {
+      console.warn("Failed to persist plant_info to DB:", err?.message);
       addActivity("Updated local crop settings", "info");
     } finally {
       setSavingPlant(false);
@@ -220,6 +221,60 @@ export function SettingsView() {
             </button>
           )}
         </form>
+      </div>
+
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-card">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className={`w-11 h-11 rounded-2xl ${audioAlertsEnabled ? "bg-amber-100 text-amber-600" : "bg-slate-100 text-slate-400"} flex items-center justify-center shrink-0`}>
+              <i className={`fa-solid ${audioAlertsEnabled ? "fa-bell text-lg" : "fa-bell-slash text-lg"}`}></i>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-slate-900">Audio Chime & Warning Notifications</h3>
+                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${audioAlertsEnabled ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                  {audioAlertsEnabled ? "Active" : "Muted"}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1 max-w-xl leading-relaxed">
+                Synthesizes instant browser warning chimes when aloe vera parameters reach hazard levels (Moisture &lt; 10% severe dehydration, &gt; 65% root rot danger, Temperature &gt; 38°C extreme heat).
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => playAlertChime("info")}
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <i className="fa-solid fa-volume-high text-xs"></i> Test Gentle Tone
+            </button>
+            <button
+              type="button"
+              onClick={() => playAlertChime("critical")}
+              className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <i className="fa-solid fa-triangle-exclamation text-xs"></i> Test Critical Alert
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const next = !audioAlertsEnabled;
+                setAudioAlertsEnabled(next);
+                addActivity(`Audio alerts ${next ? "enabled" : "muted"}`, "info");
+              }}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                audioAlertsEnabled
+                  ? "bg-amber-600 hover:bg-amber-700 text-white"
+                  : "bg-slate-200 hover:bg-slate-300 text-slate-700"
+              }`}
+            >
+              <i className={`fa-solid ${audioAlertsEnabled ? "fa-toggle-on" : "fa-toggle-off"} text-sm`}></i>
+              {audioAlertsEnabled ? "Disable Audio" : "Enable Audio"}
+            </button>
+          </div>
+        </div>
       </div>
     </section>
   );

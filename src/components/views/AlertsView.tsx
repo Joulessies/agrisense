@@ -4,6 +4,8 @@ import React from "react";
 import { useStore } from "@/store/useStore";
 import { getStatus, formatNumber } from "@/lib/utils";
 
+import { supabase } from "@/lib/supabase";
+
 const TONE_CLASSES = {
   rose: {
     border: "border-rose-200",
@@ -20,7 +22,7 @@ const TONE_CLASSES = {
 } as const;
 
 export function AlertsView() {
-  const { sensors, dismissedAlerts, dismissAlert, addActivity } = useStore();
+  const { sensors, dismissedAlerts, dismissAlert, addActivity, updateSensor, recordWatering } = useStore();
 
   const liveAlerts = Object.values(sensors).reduce((acc: any[], s) => {
     const st = getStatus(s);
@@ -40,14 +42,32 @@ export function AlertsView() {
     return acc;
   }, []);
 
-  const handleResolve = (sensorId: string, label: string) => {
+  const handleResolve = async (sensorId: string, label: string) => {
+    const s = sensors[sensorId];
+    if (s) {
+      if (sensorId === "soilMoisture" && s.value < s.optimal.min) {
+        await recordWatering();
+      } else {
+        const target = Math.round((s.optimal.min + s.optimal.max) / 2);
+        updateSensor(sensorId, target);
+        addActivity(`Remediated ${label} — normalized reading to ${target}${s.unit === "lux" ? " lux" : s.unit}`, "ok");
+        try {
+          await supabase.from("sensor_readings").insert([{
+            device_id: "agrisense-remedy",
+            soil_moisture: sensorId === "soilMoisture" ? target : sensors.soilMoisture.value,
+            temperature: sensorId === "temperature" ? target : sensors.temperature.value,
+            humidity: sensorId === "humidity" ? target : sensors.humidity.value,
+            lux: sensorId === "light" ? target : sensors.light.value,
+          }]);
+        } catch {}
+      }
+    }
     dismissAlert(sensorId);
-    addActivity(`Alert for ${label} resolved`, "info");
   };
 
   const handleDismiss = (sensorId: string, label: string) => {
     dismissAlert(sensorId);
-    addActivity(`Alert for ${label} dismissed`, "info");
+    addActivity(`Alert for ${label} dismissed without adjustment`, "info");
   };
 
   const handleDismissAll = () => {

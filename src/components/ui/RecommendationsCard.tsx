@@ -4,8 +4,22 @@ import React from "react";
 import { useStore } from "@/store/useStore";
 import { getStatus, formatNumber } from "@/lib/utils";
 
+import { supabase } from "@/lib/supabase";
+
 export function RecommendationsCard() {
-  const { sensors, setCurrentView, addActivity } = useStore();
+  const { sensors, setCurrentView, addActivity, updateSensor, recordWatering } = useStore();
+
+  const persistRemedy = async (field: string, val: number) => {
+    try {
+      await supabase.from("sensor_readings").insert([{
+        device_id: "agrisense-remedy",
+        soil_moisture: field === "soilMoisture" ? val : sensors.soilMoisture.value,
+        temperature: field === "temperature" ? val : sensors.temperature.value,
+        humidity: field === "humidity" ? val : sensors.humidity.value,
+        lux: field === "light" ? val : sensors.light.value,
+      }]);
+    } catch {}
+  };
 
   const buildRecommendations = () => {
     const recs: any[] = [];
@@ -20,11 +34,13 @@ export function RecommendationsCard() {
               title: "Water the plant now",
               detail: `Add ~1.5 L/m² before noon to reach ${s.optimal.min + 5}% moisture.`,
               icon: "fa-droplet",
+              action: { id: "btnWaterNow", label: "Water plant now", icon: "fa-droplet" },
             }
           : {
               title: "Pause irrigation",
               detail: `Let moisture settle back toward ${s.optimal.max}%.`,
               icon: "fa-droplet-slash",
+              action: { id: "btnPauseWater", label: "Pause irrigation cycle", icon: "fa-circle-check" },
             },
         temperature: isLow
           ? {
@@ -107,8 +123,61 @@ export function RecommendationsCard() {
 
   const top = recs[0];
 
-  const handleAction = () => {
+  const handleAction = async () => {
     if (!top.action) return;
+    if (top.action.id === "btnWaterNow") {
+      await recordWatering();
+      return;
+    }
+    if (top.action.id === "btnPauseWater") {
+      const newMoist = Math.max(sensors.soilMoisture.optimal.min, sensors.soilMoisture.optimal.max - 2);
+      updateSensor("soilMoisture", newMoist);
+      addActivity("Irrigation paused — soil moisture returning to target range", "ok");
+      await persistRemedy("soilMoisture", newMoist);
+      return;
+    }
+    if (top.action.id === "btnClimateUp") {
+      const target = Math.round((sensors.temperature.optimal.min + sensors.temperature.optimal.max) / 2);
+      updateSensor("temperature", target);
+      addActivity("Greenhouse climate heating engaged — temperature restored to optimal target", "ok");
+      await persistRemedy("temperature", target);
+      return;
+    }
+    if (top.action.id === "btnClimateDown") {
+      const target = Math.round((sensors.temperature.optimal.min + sensors.temperature.optimal.max) / 2);
+      updateSensor("temperature", target);
+      addActivity("Greenhouse ventilation vents opened — cooling temperature back to optimal target", "ok");
+      await persistRemedy("temperature", target);
+      return;
+    }
+    if (top.action.id === "btnMistersOn") {
+      const target = Math.round((sensors.humidity.optimal.min + sensors.humidity.optimal.max) / 2);
+      updateSensor("humidity", target);
+      addActivity("High-pressure misters activated — humidity restored to target level", "ok");
+      await persistRemedy("humidity", target);
+      return;
+    }
+    if (top.action.id === "btnMistersOff") {
+      const target = Math.round((sensors.humidity.optimal.min + sensors.humidity.optimal.max) / 2);
+      updateSensor("humidity", target);
+      addActivity("Exhaust airflow enabled — humidity regulated down to optimal level", "ok");
+      await persistRemedy("humidity", target);
+      return;
+    }
+    if (top.action.id === "btnLightsOn") {
+      const target = Math.round((sensors.light.optimal.min + sensors.light.optimal.max) / 2);
+      updateSensor("light", target);
+      addActivity("Supplemental grow lights activated — illumination restored", "ok");
+      await persistRemedy("light", target);
+      return;
+    }
+    if (top.action.id === "btnLightsOff") {
+      const target = Math.round((sensors.light.optimal.min + sensors.light.optimal.max) / 2);
+      updateSensor("light", target);
+      addActivity("Automated shade screens deployed — light intensity normalized", "ok");
+      await persistRemedy("light", target);
+      return;
+    }
     addActivity(`Executed action: ${top.action.label}`, "info");
   };
 

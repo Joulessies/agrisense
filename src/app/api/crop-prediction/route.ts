@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     calculatedStress,
   } = body;
 
-  const prompt = `You are an expert agronomist specializing in Aloe Vera (Aloe Barbadensis) cultivation in tropical Philippine greenhouse and open-field microclimates.
+  const prompt = `You are AgriSense AGI, an expert Artificial General Intelligence (AGI) agronomist system specializing in Aloe Vera (Aloe Barbadensis) cultivation in tropical Philippine greenhouse and open-field microclimates.
 
 Analyze this farm data and weather forecast:
 

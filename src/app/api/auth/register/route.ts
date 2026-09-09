@@ -4,7 +4,7 @@ import { createAdminClient, supabase } from "@/lib/supabase";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, email, password } = body;
+    const { name, email, password, role } = body;
 
     if (!email || !password || !name) {
       return NextResponse.json(
@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
 
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = name.trim();
+    const assignedRole = role === "admin" ? "admin" : "farmer";
 
     try {
       const adminClient = createAdminClient();
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
         email_confirm: true,
         user_metadata: {
           name: cleanName,
-          role: "farmer",
+          role: assignedRole,
         },
       });
 
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
           email: cleanEmail,
           password,
           options: {
-            data: { name: cleanName, role: "farmer" },
+            data: { name: cleanName, role: assignedRole },
           },
         });
 
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
             id: authData.user.id,
             name: cleanName,
             email: cleanEmail,
-            role: "farmer",
+            role: assignedRole,
             status: "active",
           },
           { onConflict: "id" }

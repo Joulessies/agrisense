@@ -29,3 +29,13 @@ create policy "sensor_readings_public_insert"
   on public.sensor_readings for insert
   to public
   with check (true);
+
+-- Enable Supabase Realtime broadcast for sensor_readings
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    alter publication supabase_realtime add table public.sensor_readings;
+  end if;
+exception
+  when others then null;
+end $$;

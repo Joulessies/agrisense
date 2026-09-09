@@ -1,6 +1,6 @@
 {
-  "name": "AgriSense",
-  "short_name": "AgriSense",
+  "name": "AgriSense Aloe",
+  "short_name": "AgriSense Aloe",
   "description": "Real-time aloe vera greenhouse monitoring",
   "start_url": "/",
   "display": "standalone",

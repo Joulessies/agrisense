@@ -1,11 +1,3 @@
-#!/usr/bin/env node
-/**
- * AgriSense Deployment Verification Script
- * 
- * Checks that all environment variables are set and the database is accessible.
- * Run with: node scripts/verify-deployment.mjs
- */
-
 import { createClient } from '@supabase/supabase-js';
 
 const errors = [];
@@ -13,7 +5,6 @@ const warnings = [];
 
 console.log('🔍 AgriSense Deployment Verification\n');
 
-// 1. Check environment variables
 console.log('📋 Environment Variables:');
 
 const requiredEnvVars = {
@@ -38,7 +29,6 @@ if (!process.env.NEXT_PUBLIC_DEFAULT_WEATHER_CITY) {
 
 console.log('');
 
-// 2. Test Supabase connection
 console.log('🔌 Supabase Connection:');
 
 if (errors.length === 0) {
@@ -48,7 +38,6 @@ if (errors.length === 0) {
   );
 
   try {
-    // Check if we can query profiles table
     const { data: profiles, error: profileError } = await supabase
       .from('profiles')
       .select('id, email, role')
@@ -69,7 +58,6 @@ if (errors.length === 0) {
       }
     }
 
-    // Check sensor_readings table
     const { data: readings, error: readingsError } = await supabase
       .from('sensor_readings')
       .select('id')
@@ -82,7 +70,6 @@ if (errors.length === 0) {
       console.log(`  ✅ sensor_readings table accessible`);
     }
 
-    // Check realtime subscription capability
     const channel = supabase.channel('test-channel');
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
@@ -95,7 +82,6 @@ if (errors.length === 0) {
       }
     });
 
-    // Give it a moment to connect
     await new Promise(resolve => setTimeout(resolve, 2000));
 
   } catch (err) {
@@ -108,7 +94,6 @@ if (errors.length === 0) {
 
 console.log('');
 
-// 3. Summary
 console.log('📊 Summary:');
 if (errors.length === 0 && warnings.length === 0) {
   console.log('  ✅ All checks passed! Deployment is ready.');

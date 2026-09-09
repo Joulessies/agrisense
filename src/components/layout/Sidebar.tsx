@@ -37,8 +37,8 @@ export function Sidebar() {
           <i className="fa-solid fa-leaf text-white text-lg"></i>
         </div>
         <div className="leading-tight">
-          <p className="text-base font-bold bg-gradient-to-r from-agri-800 to-agri-600 bg-clip-text text-transparent">
-            AgriSense
+          <p className="text-base font-bold bg-gradient-to-r from-agri-800 to-agri-600 bg-clip-text text-transparent flex items-center gap-1.5">
+            AgriSense <span className="text-[11px] px-1.5 py-0.5 rounded bg-agri-100 text-agri-800 font-semibold tracking-wide">Aloe</span>
           </p>
           <span
             className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded ${

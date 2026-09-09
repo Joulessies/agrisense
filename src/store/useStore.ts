@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
+import { showToast } from '@/lib/utils';
 
 
 export type Role = "farmer" | "admin";
@@ -49,6 +50,7 @@ export interface FarmLocation {
   lat: number;
   lon: number;
   region?: string;
+  isGps?: boolean;
 }
 
 export interface FarmSettings {
@@ -69,6 +71,9 @@ interface AppState {
   nodes: NodeItem[];
   profiles: ProfileItem[];
   lastSync: Date;
+  isSyncing: boolean;
+  lanIp: string;
+  lanPolling: boolean;
   analyticsRange: string;
   dismissedAlerts: Set<string>;
 
@@ -99,6 +104,18 @@ interface AppState {
   setFarmSettings: (settings: Partial<FarmSettings>) => void;
   setManualWateringDays: (days: number | null) => void;
   recordWatering: () => Promise<void>;
+
+  setLanIp: (ip: string) => void;
+  setLanPolling: (enabled: boolean) => void;
+  syncNow: () => Promise<void>;
+  audioAlertsEnabled: boolean;
+  setAudioAlertsEnabled: (enabled: boolean) => void;
+  playAlertChime: (type?: "info" | "critical" | "test") => void;
+
+  livePacketCount: number;
+  streamLatency: number | null;
+  incrementPacketCount: () => void;
+  setStreamLatency: (ms: number | null) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -170,14 +187,23 @@ export const useStore = create<AppState>((set) => ({
   nodes: [],
   profiles: [],
   lastSync: new Date(),
+  isSyncing: false,
+  lanIp: typeof window !== "undefined" ? (localStorage.getItem("agrisense_esp32_ip") || "192.168.1.42") : "192.168.1.42",
+  lanPolling: typeof window !== "undefined" ? (localStorage.getItem("agrisense_lan_polling") === "true") : false,
   analyticsRange: "7d",
   dismissedAlerts: new Set(),
   realtimeStatus: "disconnected",
   currentView: "dashboard",
+  livePacketCount: 0,
+  streamLatency: null,
+
+  incrementPacketCount: () => set((state) => ({ livePacketCount: state.livePacketCount + 1 })),
+  setStreamLatency: (ms: number | null) => set({ streamLatency: ms }),
 
   setCurrentView: (view) => set({ currentView: view }),
   setRole: (role) => set({ role }),
   updateSensor: (id, value) => set((state) => ({
+    livePacketCount: state.livePacketCount + 1,
     sensors: {
       ...state.sensors,
       [id]: { ...state.sensors[id], value }
@@ -236,13 +262,21 @@ export const useStore = create<AppState>((set) => ({
     }));
   },
 
-  farmLocation: {
-    name: "Manila",
-    country: "PH",
-    lat: 14.5995,
-    lon: 120.9842,
-    region: "NCR / Central Luzon",
-  },
+  farmLocation: typeof window !== "undefined" && localStorage.getItem("agrisense_detected_location")
+    ? (() => {
+        try {
+          return JSON.parse(localStorage.getItem("agrisense_detected_location")!);
+        } catch {
+          return { name: "Manila", country: "PH", lat: 14.5995, lon: 120.9842, region: "NCR / Central Luzon" };
+        }
+      })()
+    : {
+        name: "Manila",
+        country: "PH",
+        lat: 14.5995,
+        lon: 120.9842,
+        region: "NCR / Central Luzon",
+      },
   farmSettings: {
     potSize: "medium",
     sunExposure: "partial",
@@ -287,5 +321,186 @@ export const useStore = create<AppState>((set) => ({
       },
     }));
     await useStore.getState().addActivity("Aloe vera watered — drought counter reset to Day 0", "ok");
+  },
+
+  setLanIp: (ip: string) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("agrisense_esp32_ip", ip);
+    }
+    set({ lanIp: ip });
+  },
+
+  setLanPolling: (polling: boolean) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("agrisense_lan_polling", polling ? "true" : "false");
+    }
+    set({ lanPolling: polling });
+  },
+
+  syncNow: async () => {
+    const { updateSensor, addActivity, setNodes, setPlant, setActivity, lanIp } = useStore.getState();
+    set({ isSyncing: true });
+
+    let lanSuccess = false;
+    let dbSuccess = false;
+
+    const cleanIp = (lanIp || '').trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+
+    const fetchLan = async () => {
+      if (!cleanIp) return;
+      const startMs = Date.now();
+      try {
+        let data: any = null;
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 2000);
+          const res = await fetch(`/api/lan-poller?ip=${encodeURIComponent(cleanIp)}`, {
+            cache: 'no-store',
+            signal: controller.signal,
+          });
+          clearTimeout(timeout);
+          if (res.ok) {
+            data = await res.json();
+            set({ streamLatency: Date.now() - startMs });
+          }
+        } catch {}
+
+        if (!data) {
+          try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 2000);
+            const directRes = await fetch(`http://${cleanIp}/api/readings`, {
+              signal: controller.signal,
+            });
+            clearTimeout(timeout);
+            if (directRes.ok) {
+              data = await directRes.json();
+              set({ streamLatency: Date.now() - startMs });
+            }
+          } catch {}
+        }
+
+        if (data && (data.soilMoisture != null || data.temperature != null)) {
+          if (data.soilMoisture != null) updateSensor('soilMoisture', data.soilMoisture);
+          if (data.temperature != null) updateSensor('temperature', data.temperature);
+          if (data.humidity != null) updateSensor('humidity', data.humidity);
+          if (data.lux != null) updateSensor('light', data.lux);
+
+          lanSuccess = true;
+
+          supabase.from('sensor_readings').insert([{
+            device_id: data.device_id || 'agrisense-lan',
+            soil_moisture: data.soilMoisture,
+            temperature: data.temperature,
+            humidity: data.humidity,
+            lux: data.lux,
+          }]).then();
+        }
+      } catch {}
+    };
+
+    const fetchDb = async () => {
+      try {
+        const [
+          { data: readingsData },
+          { data: plantData },
+          { data: activityData },
+          { data: nodesData }
+        ] = await Promise.all([
+          supabase.from('sensor_readings').select('*').order('recorded_at', { ascending: false }).limit(1),
+          supabase.from('plant_info').select('*').limit(1).single(),
+          supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(30),
+          supabase.from('nodes').select('*').order('id')
+        ]);
+
+        if (plantData) setPlant({ age: plantData.age, harvestAge: plantData.harvest_age });
+        if (activityData) setActivity(activityData);
+        if (nodesData) setNodes(nodesData);
+
+        if (readingsData && readingsData.length > 0) {
+          const r = readingsData[0];
+          if (!lanSuccess) {
+            if (r.soil_moisture != null) updateSensor('soilMoisture', r.soil_moisture);
+            if (r.temperature != null) updateSensor('temperature', r.temperature);
+            if (r.humidity != null) updateSensor('humidity', r.humidity);
+            const luxVal = r.lux != null ? r.lux : r.light_lux;
+            if (luxVal != null) updateSensor('light', luxVal);
+          }
+          dbSuccess = true;
+        }
+      } catch (err) {
+        console.warn('[syncNow] DB sync error:', err);
+      }
+    };
+
+    await Promise.all([fetchLan(), fetchDb()]);
+
+    const now = new Date();
+    set({
+      isSyncing: false,
+      lastSync: now,
+      realtimeStatus: lanSuccess || dbSuccess ? 'connected' : 'disconnected',
+    });
+
+    if (lanSuccess) {
+      addActivity(`Live telemetry refreshed from ESP32 (${cleanIp})`, 'ok');
+      showToast(`Synced with ESP32 (${cleanIp})`, 'ok');
+    } else if (dbSuccess) {
+      addActivity('Telemetry and crop records refreshed from cloud database', 'ok');
+      showToast('Telemetry refreshed from cloud database', 'ok');
+    } else {
+      showToast('Could not reach sensor or database', 'warning');
+    }
+  },
+
+  audioAlertsEnabled: typeof window !== "undefined" ? localStorage.getItem("agrisense_audio_alerts") !== "false" : true,
+
+  setAudioAlertsEnabled: (enabled: boolean) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("agrisense_audio_alerts", enabled ? "true" : "false");
+    }
+    set({ audioAlertsEnabled: enabled });
+  },
+
+  playAlertChime: (type = "info") => {
+    if (typeof window === "undefined") return;
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      if (ctx.state === "suspended") {
+        ctx.resume();
+      }
+      const now = ctx.currentTime;
+      if (type === "critical") {
+        const freqs = [880, 659, 880];
+        freqs.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, now + idx * 0.18);
+          gain.gain.setValueAtTime(0.2, now + idx * 0.18);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.18 + 0.16);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + idx * 0.18);
+          osc.stop(now + idx * 0.18 + 0.17);
+        });
+      } else {
+        const freqs = [587.33, 880];
+        freqs.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, now + idx * 0.16);
+          gain.gain.setValueAtTime(0.15, now + idx * 0.16);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.16 + 0.2);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + idx * 0.16);
+          osc.stop(now + idx * 0.16 + 0.22);
+        });
+      }
+    } catch {}
   },
 }));

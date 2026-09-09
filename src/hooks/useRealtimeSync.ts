@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useStore } from '@/store/useStore';
 
 interface SensorReading {
-  id: string;
+  id: string | number;
   recorded_at: string;
   device_id: string;
   soil_moisture: number | null;
@@ -15,8 +15,27 @@ interface SensorReading {
 }
 
 export function useRealtimeSync() {
-  const { updateSensor, addActivity, setNodes, setProfiles, setPlant, setActivity, setThresholds } = useStore();
+  const { updateSensor, setNodes, setProfiles, setPlant, setActivity, setThresholds } = useStore();
   const channelsRef = useRef<ReturnType<typeof supabase.channel>[]>([]);
+  const lastLanDbInsertMs = useRef<number>(0);
+  const lastAudioChimeMs = useRef<number>(0);
+  const lastKnownReadingId = useRef<string | number | null>(null);
+
+  const checkCriticalAlerts = (soil?: number | null, temp?: number | null) => {
+    const { audioAlertsEnabled, playAlertChime } = useStore.getState();
+    if (!audioAlertsEnabled) return;
+    const now = Date.now();
+    if (now - lastAudioChimeMs.current < 90000) return;
+
+    const isCritical =
+      (soil != null && (soil < 10 || soil > 65)) ||
+      (temp != null && (temp > 38 || temp < 12));
+
+    if (isCritical) {
+      lastAudioChimeMs.current = now;
+      playAlertChime("critical");
+    }
+  };
 
   useEffect(() => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
@@ -48,10 +67,13 @@ export function useRealtimeSync() {
         if (settingsData) setThresholds(settingsData);
         if (readingsData && readingsData.length > 0) {
           const row = readingsData[0] as SensorReading;
+          lastKnownReadingId.current = row.id;
           if (row.soil_moisture != null) updateSensor('soilMoisture', row.soil_moisture);
           if (row.temperature != null) updateSensor('temperature', row.temperature);
           if (row.humidity != null) updateSensor('humidity', row.humidity);
           if (row.lux != null) updateSensor('light', row.lux);
+          checkCriticalAlerts(row.soil_moisture, row.temperature);
+          useStore.setState({ lastSync: new Date(), realtimeStatus: 'connected' });
         }
       } catch (err) {
         console.error("Error fetching initial database state:", err);
@@ -60,24 +82,40 @@ export function useRealtimeSync() {
 
     fetchInitialData();
 
+    const handleNewReading = (row: SensorReading) => {
+      lastKnownReadingId.current = row.id;
+      if (row.soil_moisture != null) updateSensor('soilMoisture', row.soil_moisture);
+      if (row.temperature != null) updateSensor('temperature', row.temperature);
+      if (row.humidity != null) updateSensor('humidity', row.humidity);
+      if (row.lux != null) updateSensor('light', row.lux);
+      checkCriticalAlerts(row.soil_moisture, row.temperature);
+
+      useStore.getState().incrementPacketCount?.();
+      useStore.setState({ 
+        lastSync: new Date(),
+        realtimeStatus: 'connected'
+      });
+    };
+
     const sensorChannel = supabase
       .channel('sensor_readings_changes')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'sensor_readings' },
         (payload) => {
-          const row = payload.new as SensorReading;
-          if (row.soil_moisture != null) updateSensor('soilMoisture', row.soil_moisture);
-          if (row.temperature != null) updateSensor('temperature', row.temperature);
-          if (row.humidity != null) updateSensor('humidity', row.humidity);
-          if (row.lux != null) updateSensor('light', row.lux);
-
-          useStore.setState({ lastSync: new Date() });
+          handleNewReading(payload.new as SensorReading);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'sensor_readings' },
+        (payload) => {
+          handleNewReading(payload.new as SensorReading);
         }
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          useStore.setState({ realtimeStatus: 'connected' });
+          useStore.setState({ realtimeStatus: 'connected', lastSync: new Date() });
         } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
           useStore.setState({ realtimeStatus: 'disconnected' });
         }
@@ -106,7 +144,109 @@ export function useRealtimeSync() {
 
     channelsRef.current = [sensorChannel, tablesChannel];
 
+    const pollSupabase = async () => {
+      try {
+        const { data } = await supabase
+          .from('sensor_readings')
+          .select('*')
+          .order('recorded_at', { ascending: false })
+          .limit(1);
+
+        if (data && data.length > 0) {
+          const row = data[0] as SensorReading;
+          if (lastKnownReadingId.current === null) {
+            lastKnownReadingId.current = row.id;
+            useStore.setState({ realtimeStatus: 'connected' });
+          } else if (lastKnownReadingId.current !== row.id) {
+            handleNewReading(row);
+          } else {
+            useStore.setState({ realtimeStatus: 'connected' });
+          }
+        }
+      } catch {}
+    };
+    const supabaseInterval = setInterval(pollSupabase, 3000);
+
+    const pollLan = async () => {
+      const { lanPolling, lanIp } = useStore.getState();
+      if (!lanPolling || !lanIp) return;
+      const cleanIp = lanIp.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+      if (!cleanIp) return;
+
+      const startMs = Date.now();
+      try {
+        let data: any = null;
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 2000);
+          const res = await fetch(`/api/lan-poller?ip=${encodeURIComponent(cleanIp)}`, {
+            cache: 'no-store',
+            signal: controller.signal,
+          });
+          clearTimeout(timeout);
+          if (res.ok) {
+            data = await res.json();
+            useStore.getState().setStreamLatency?.(Date.now() - startMs);
+          }
+        } catch {}
+
+        if (!data) {
+          try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 2000);
+            const directRes = await fetch(`http://${cleanIp}/api/readings`, {
+              signal: controller.signal,
+            });
+            clearTimeout(timeout);
+            if (directRes.ok) {
+              data = await directRes.json();
+              useStore.getState().setStreamLatency?.(Date.now() - startMs);
+            }
+          } catch {}
+        }
+
+        if (data && (data.soilMoisture != null || data.temperature != null)) {
+          if (data.soilMoisture != null) updateSensor('soilMoisture', data.soilMoisture);
+          if (data.temperature != null) updateSensor('temperature', data.temperature);
+          if (data.humidity != null) updateSensor('humidity', data.humidity);
+          if (data.lux != null) updateSensor('light', data.lux);
+          checkCriticalAlerts(data.soilMoisture, data.temperature);
+
+          useStore.getState().incrementPacketCount?.();
+          const now = new Date();
+          useStore.setState({ lastSync: now, realtimeStatus: 'connected' });
+
+          const nowMs = now.getTime();
+          if (nowMs - lastLanDbInsertMs.current > 15000) {
+            lastLanDbInsertMs.current = nowMs;
+            supabase.from('sensor_readings').insert([{
+              device_id: data.device_id || 'agrisense-lan',
+              soil_moisture: data.soilMoisture,
+              temperature: data.temperature,
+              humidity: data.humidity,
+              lux: data.lux,
+            }]).then();
+          }
+        }
+      } catch {}
+    };
+
+    const lanInterval = setInterval(pollLan, 2500);
+
+    const watchdogInterval = setInterval(() => {
+      const { lastSync } = useStore.getState();
+      if (lastSync) {
+        const diffMs = Date.now() - new Date(lastSync).getTime();
+        if (diffMs > 180000) {
+          useStore.setState({ realtimeStatus: 'disconnected' });
+        }
+      }
+    }, 10000);
+
     return () => {
+      clearInterval(supabaseInterval);
+      clearInterval(lanInterval);
+      clearInterval(watchdogInterval);
       channelsRef.current.forEach(channel => {
         supabase.removeChannel(channel);
       });

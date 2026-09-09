@@ -46,6 +46,7 @@ export function UsersView() {
           name: name.trim(),
           email: email.trim().toLowerCase(),
           password,
+          role: userRole,
         }),
       });
 

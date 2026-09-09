@@ -10,13 +10,13 @@ const inter = Inter({
 
 
 export const metadata: Metadata = {
-  title: "AgriSense | Smart Farm Monitor",
+  title: "AgriSense Aloe | Smart Farm Monitor",
   description: "Protected Cultivation Aloe Vera Monitor",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "AgriSense",
+    title: "AgriSense Aloe",
   },
 };
 

@@ -61,7 +61,13 @@ export function CropPredictionCard() {
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-base font-bold text-slate-900">Crop Health & Weather Predictor</h3>
-              <span className="text-[11px] font-semibold text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <span className="text-[11px] font-semibold text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full flex items-center gap-1.5">
+                {farmLocation.isGps && (
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                  </span>
+                )}
                 <i className="fa-solid fa-location-dot text-[10px]"></i>
                 {farmLocation.name}
               </span>

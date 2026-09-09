@@ -25,18 +25,22 @@ function ForecastPill({ day }: { day: ForecastDay }) {
 }
 
 export function WeatherCard() {
-  const { weather, isLoading, error, refresh } = useWeather();
+  const { weather, isLoading, isDetectingLocation, isGpsLocated, error, refresh, detectAndApplyLocation } = useWeather();
 
   useEffect(() => {
     refresh();
   }, []);
 
-  if (isLoading) {
+  if (isLoading || isDetectingLocation) {
     return (
       <div className="bg-gradient-to-br from-sky-500 to-blue-600 rounded-xl p-5 text-white animate-pulse">
-        <div className="flex items-center gap-2 mb-4">
-          <i className="fa-solid fa-cloud-sun text-white/70"></i>
-          <p className="text-sm font-semibold text-white/80">Loading weather...</p>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <i className="fa-solid fa-location-crosshairs text-white/70 animate-spin"></i>
+            <p className="text-sm font-semibold text-white/80">
+              {isDetectingLocation ? 'Pinpointing real-time location…' : 'Fetching live weather…'}
+            </p>
+          </div>
         </div>
         <div className="h-10 bg-white/20 rounded-lg mb-3"></div>
         <div className="h-6 bg-white/20 rounded-lg w-2/3"></div>
@@ -50,14 +54,22 @@ export function WeatherCard() {
         <i className="fa-solid fa-cloud-slash text-slate-300 text-2xl"></i>
         <p className="text-sm font-medium text-slate-500">Weather unavailable</p>
         <p className="text-xs text-slate-400 max-w-[180px]">
-          {error ?? 'Add NEXT_PUBLIC_OPENWEATHER_API_KEY to .env.local'}
+          {error ?? 'Failed to retrieve live forecast'}
         </p>
-        <button
-          onClick={() => refresh()}
-          className="text-xs text-agri-600 hover:underline mt-1 font-medium"
-        >
-          Try again
-        </button>
+        <div className="flex items-center gap-2 mt-1">
+          <button
+            onClick={() => detectAndApplyLocation(true)}
+            className="text-xs bg-sky-600 text-white font-medium px-2.5 py-1 rounded-lg hover:bg-sky-700 transition cursor-pointer"
+          >
+            Detect My Location
+          </button>
+          <button
+            onClick={() => refresh()}
+            className="text-xs text-slate-600 hover:underline font-medium cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
@@ -66,22 +78,42 @@ export function WeatherCard() {
   const rainWarning = forecast.some((d) => d.pop > 0.5);
 
   return (
-    <div className="bg-gradient-to-br from-sky-500 to-blue-600 rounded-xl p-5 text-white shadow-[0_4px_20px_-4px_rgba(14,165,233,0.4)]">
+    <div className="bg-gradient-to-br from-sky-500 to-blue-600 rounded-xl p-5 text-white shadow-[0_4px_20px_-4px_rgba(14,165,233,0.4)] relative overflow-hidden">
       <div className="flex items-start justify-between mb-3">
         <div>
-          <p className="text-xs font-semibold text-sky-100 uppercase tracking-wide mb-0.5">
-            <i className="fa-solid fa-location-dot mr-1"></i>
-            {current.city}, {current.country}
-          </p>
-          <p className="text-sm font-semibold text-white capitalize">{current.description}</p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="text-xs font-semibold text-sky-100 uppercase tracking-wide flex items-center gap-1">
+              <i className="fa-solid fa-location-dot"></i>
+              {current.city}, {current.country}
+            </p>
+            {isGpsLocated && (
+              <span className="text-[9px] bg-emerald-400/25 border border-emerald-300/40 text-emerald-100 font-bold uppercase tracking-wider px-1.5 py-0.2 rounded-full flex items-center gap-1">
+                <span className="w-1 h-1 rounded-full bg-emerald-300 animate-ping"></span>
+                Live GPS
+              </span>
+            )}
+          </div>
+          <p className="text-sm font-semibold text-white capitalize mt-0.5">{current.description}</p>
         </div>
-        <button
-          onClick={() => refresh()}
-          className="text-white/60 hover:text-white transition"
-          title="Refresh weather"
-        >
-          <i className="fa-solid fa-rotate text-sm"></i>
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => detectAndApplyLocation(true)}
+            disabled={isDetectingLocation}
+            className="text-white/70 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition cursor-pointer"
+            title="Locate my exact position in real time"
+          >
+            <i className={`fa-solid fa-location-crosshairs text-xs ${isDetectingLocation ? 'animate-spin' : ''}`}></i>
+          </button>
+          <button
+            type="button"
+            onClick={() => refresh()}
+            className="text-white/70 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition cursor-pointer"
+            title="Refresh live weather"
+          >
+            <i className="fa-solid fa-rotate text-xs"></i>
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-3 mb-3">

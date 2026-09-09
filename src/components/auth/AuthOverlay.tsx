@@ -242,7 +242,7 @@ export function AuthOverlay({ initialIsRegistering = false }: { initialIsRegiste
             <i className="fa-solid fa-leaf text-white text-xl" />
           </div>
           <h1 className="text-2xl font-bold bg-gradient-to-r from-agri-700 to-agri-500 bg-clip-text text-transparent">
-            AgriSense
+            AgriSense Aloe
           </h1>
           <p className="text-xs text-slate-500 mt-1">
             {mode === "register" ? "Create a new account" : "Sign in to your account"}

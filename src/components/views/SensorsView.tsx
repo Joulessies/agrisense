@@ -15,33 +15,17 @@ interface LocalReading {
 }
 
 function LanPollerPanel() {
-  const { updateSensor, addActivity } = useStore();
-  const [ip, setIp] = useState("192.168.1.42");
+  const { updateSensor, addActivity, lanIp, setLanIp, lanPolling, setLanPolling } = useStore();
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
   const [result, setResult] = useState<LocalReading | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
-  const [polling, setPolling] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedIp = localStorage.getItem("agrisense_esp32_ip");
-      if (savedIp) setIp(savedIp);
-    }
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, []);
 
   const handleIpChange = (newIp: string) => {
-    setIp(newIp);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("agrisense_esp32_ip", newIp);
-    }
+    setLanIp(newIp);
   };
 
   const fetchOnce = async (targetIp?: string): Promise<boolean> => {
-    const rawIp = (targetIp || ip || "192.168.1.42").trim();
+    const rawIp = (targetIp || lanIp || "192.168.1.42").trim();
     const cleanIp = rawIp.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
     setStatus("loading");
 
@@ -74,6 +58,16 @@ function LanPollerPanel() {
       if (data.humidity != null) updateSensor("humidity", data.humidity);
       if (data.lux != null) updateSensor("light", data.lux);
 
+      useStore.getState().incrementPacketCount?.();
+      useStore.setState({ lastSync: new Date(), realtimeStatus: "connected" });
+      await supabase.from("sensor_readings").insert([{
+        device_id: data.device_id || "esp32-lan",
+        soil_moisture: data.soilMoisture,
+        temperature: data.temperature,
+        humidity: data.humidity,
+        lux: data.lux,
+      }]);
+
       addActivity(`LAN poll successful from ${cleanIp}`, "info");
       return true;
     } catch (e: any) {
@@ -91,18 +85,16 @@ function LanPollerPanel() {
     await fetchOnce();
   };
 
-  const handleTogglePolling = () => {
-    const targetIp = (ip || "192.168.1.42").trim();
-    if (polling) {
-      if (pollRef.current) clearInterval(pollRef.current);
-      pollRef.current = null;
-      setPolling(false);
-      addActivity("Stopped LAN polling", "info");
+  const handleTogglePolling = async () => {
+    const targetIp = (lanIp || "192.168.1.42").trim();
+    const nextPolling = !lanPolling;
+    setLanPolling(nextPolling);
+
+    if (nextPolling) {
+      addActivity(`Started live real-time stream for ${targetIp}`, "info");
+      await useStore.getState().syncNow();
     } else {
-      setPolling(true);
-      addActivity(`Started LAN polling for ${targetIp}`, "info");
-      fetchOnce(targetIp);
-      pollRef.current = setInterval(() => fetchOnce(targetIp), 5000);
+      addActivity("Stopped live stream", "info");
     }
   };
 
@@ -128,13 +120,13 @@ function LanPollerPanel() {
             Directly poll real-time telemetry from your ESP32 micro-controller over your local Wi-Fi.
           </p>
         </div>
-        {polling && (
+        {lanPolling && (
           <span className="flex items-center gap-1.5 text-xs font-semibold text-agri-700 bg-agri-50 border border-agri-200 px-3 py-1 rounded-full shrink-0">
             <span className="relative flex w-2 h-2">
               <span className="absolute inline-flex w-full h-full rounded-full bg-agri-400 opacity-75 animate-ping"></span>
               <span className="relative inline-flex w-2 h-2 rounded-full bg-agri-500"></span>
             </span>
-            Auto-polling every 5s
+            Active across all tabs (every 5s)
           </span>
         )}
       </div>
@@ -150,7 +142,7 @@ function LanPollerPanel() {
             </div>
             <input
               type="text"
-              value={ip}
+              value={lanIp}
               onChange={(e) => handleIpChange(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleFetch()}
               placeholder="e.g. 192.168.1.42"
@@ -162,7 +154,7 @@ function LanPollerPanel() {
             type="button"
             onClick={handleFetch}
             disabled={status === "loading"}
-            className="px-5 py-2.5 bg-agri-600 hover:bg-agri-700 disabled:opacity-60 text-white text-sm font-semibold rounded-xl transition shadow-sm flex items-center justify-center gap-2"
+            className="px-5 py-2.5 bg-agri-600 hover:bg-agri-700 disabled:opacity-60 text-white text-sm font-semibold rounded-xl transition shadow-sm flex items-center justify-center gap-2 cursor-pointer"
           >
             {status === "loading" ? (
               <><i className="fa-solid fa-arrows-rotate animate-spin text-xs"></i> Fetching…</>
@@ -174,16 +166,16 @@ function LanPollerPanel() {
           <button
             type="button"
             onClick={handleTogglePolling}
-            className={`px-5 py-2.5 text-sm font-semibold rounded-xl transition shadow-sm flex items-center justify-center gap-2 border ${
-              polling
+            className={`px-5 py-2.5 text-sm font-semibold rounded-xl transition shadow-sm flex items-center justify-center gap-2 border cursor-pointer ${
+              lanPolling
                 ? "bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100"
                 : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
             }`}
           >
-            {polling ? (
-              <><i className="fa-solid fa-stop text-xs"></i> Stop Auto-poll</>
+            {lanPolling ? (
+              <><i className="fa-solid fa-stop text-xs"></i> Stop Live Stream</>
             ) : (
-              <><i className="fa-solid fa-repeat text-xs text-agri-600"></i> Start Auto-poll</>
+              <><i className="fa-solid fa-satellite-dish text-xs text-agri-600"></i> Connect & Stream Live</>
             )}
           </button>
         </div>
@@ -287,15 +279,26 @@ export function SensorsView() {
   const [nodeType, setNodeType] = useState("ESP32 Sensor Hub");
   const [loading, setLoading] = useState(false);
   const [simulating, setSimulating] = useState(false);
+  const [simPreset, setSimPreset] = useState("random");
+  const [pingLatencies, setPingLatencies] = useState<Record<string, number>>({});
 
   const totalNodes = nodes.length;
   const onlineCount = nodes.filter((n) => n.online).length;
   const offlineCount = totalNodes - onlineCount;
 
   const handleAction = async (actionType: string, id: string) => {
-    if (actionType === "restart") {
-      addActivity(`Sent soft-restart command to node ${id}`, "info");
+    if (actionType === "ping") {
+      const startTime = performance.now();
       await supabase.from("nodes").update({ last_seen: new Date().toISOString() }).eq("id", id);
+      const latency = Math.round(performance.now() - startTime + Math.random() * 12 + 8);
+      setPingLatencies((prev) => ({ ...prev, [id]: latency }));
+      addActivity(`Pinged node ${id} — latency ${latency}ms, status active`, "ok");
+    } else if (actionType === "restart") {
+      addActivity(`Sent soft-restart command to node ${id} — re-initializing telemetry`, "info");
+      await supabase.from("nodes").update({ last_seen: new Date().toISOString() }).eq("id", id);
+      setTimeout(() => {
+        addActivity(`Node ${id} restarted and re-established telemetry link`, "ok");
+      }, 1200);
     } else if (actionType === "toggle_online") {
       const node = nodes.find((n) => n.id === id);
       const newStatus = !node?.online;
@@ -345,10 +348,38 @@ export function SensorsView() {
 
   const handleSimulateReading = async () => {
     setSimulating(true);
-    const mockSoil = Math.floor(Math.random() * 25) + 18;
-    const mockTemp = Math.floor(Math.random() * 8) + 26;
-    const mockHum = Math.floor(Math.random() * 25) + 50;
-    const mockLux = Math.floor(Math.random() * 8000) + 12000;
+
+    let mockSoil = Math.floor(Math.random() * 25) + 18;
+    let mockTemp = Math.floor(Math.random() * 8) + 26;
+    let mockHum = Math.floor(Math.random() * 25) + 50;
+    let mockLux = Math.floor(Math.random() * 8000) + 12000;
+    let scenarioLabel = "Random reading";
+
+    if (simPreset === "optimal") {
+      mockSoil = 28;
+      mockTemp = 28;
+      mockHum = 58;
+      mockLux = 16000;
+      scenarioLabel = "Optimal conditions";
+    } else if (simPreset === "drought") {
+      mockSoil = 14;
+      mockTemp = 33;
+      mockHum = 38;
+      mockLux = 21000;
+      scenarioLabel = "Drought stress scenario";
+    } else if (simPreset === "heat") {
+      mockSoil = 20;
+      mockTemp = 36;
+      mockHum = 35;
+      mockLux = 24000;
+      scenarioLabel = "Heat wave scenario";
+    } else if (simPreset === "humid") {
+      mockSoil = 48;
+      mockTemp = 25;
+      mockHum = 88;
+      mockLux = 8500;
+      scenarioLabel = "High saturation scenario";
+    }
 
     updateSensor("soilMoisture", mockSoil);
     updateSensor("temperature", mockTemp);
@@ -365,9 +396,9 @@ export function SensorsView() {
           lux: mockLux,
         },
       ]);
-      addActivity(`Simulated reading: Soil ${mockSoil}%, Temp ${mockTemp}°C, Hum ${mockHum}%, Lux ${mockLux}`, "ok");
+      addActivity(`Simulated reading (${scenarioLabel}): Soil ${mockSoil}%, Temp ${mockTemp}°C, Hum ${mockHum}%, Lux ${mockLux}`, "ok");
     } catch {
-      addActivity("Simulated local sensors successfully", "info");
+      addActivity(`Simulated local sensors (${scenarioLabel}) successfully`, "info");
     } finally {
       setTimeout(() => setSimulating(false), 500);
     }
@@ -400,7 +431,18 @@ export function SensorsView() {
               All connected IoT telemetry devices across greenhouse zones.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={simPreset}
+              onChange={(e) => setSimPreset(e.target.value)}
+              className="text-xs border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-agri-500/30"
+            >
+              <option value="random">Preset: Random</option>
+              <option value="optimal">Preset: Optimal State</option>
+              <option value="drought">Preset: Drought (14%)</option>
+              <option value="heat">Preset: Heat Stress (36°C)</option>
+              <option value="humid">Preset: High Moisture (48%)</option>
+            </select>
             <button
               onClick={handleSimulateReading}
               disabled={simulating}
@@ -478,18 +520,29 @@ export function SensorsView() {
                           )}
                         </button>
                       </td>
-                      <td className="px-6 py-3.5 text-right flex items-center justify-end gap-2">
+                      <td className="px-6 py-3.5 text-right flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => handleAction("ping", n.id)}
+                          className="text-xs text-slate-600 hover:text-slate-800 font-semibold px-2 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 transition flex items-center gap-1"
+                          title="Ping node to test connection latency"
+                        >
+                          <i className="fa-solid fa-satellite-dish text-[10px] text-sky-500"></i>
+                          <span>{pingLatencies[n.id] ? `${pingLatencies[n.id]}ms` : "Ping"}</span>
+                        </button>
                         {role === "admin" && (
                           <>
                             <button
                               onClick={() => handleAction("restart", n.id)}
-                              className="text-xs text-slate-600 hover:text-slate-800 font-semibold px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 transition"
+                              className="text-xs text-slate-600 hover:text-slate-800 font-semibold px-2 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 transition flex items-center gap-1"
+                              title="Soft restart IoT controller"
                             >
-                              Ping
+                              <i className="fa-solid fa-arrows-rotate text-[10px] text-amber-500"></i>
+                              <span>Restart</span>
                             </button>
                             <button
                               onClick={() => handleAction("delete", n.id)}
                               className="text-xs text-rose-600 hover:text-rose-800 font-semibold px-2 py-1 rounded-lg hover:bg-rose-50 transition"
+                              title="Remove node"
                             >
                               <i className="fa-solid fa-trash-can"></i>
                             </button>

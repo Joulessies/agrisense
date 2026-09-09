@@ -6,6 +6,7 @@ export interface GeminiInsight {
   title: string;
   body: string;
   type: 'tip' | 'warning' | 'ok';
+  reference?: string;
 }
 
 interface UseGeminiInsightsReturn {

@@ -121,3 +121,27 @@
     }
   }
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #farm-health-report-printable,
+  #farm-health-report-printable * {
+    visibility: visible;
+  }
+  #farm-health-report-printable {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

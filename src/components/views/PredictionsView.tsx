@@ -43,7 +43,7 @@ export function PredictionsView() {
     addActivity,
   } = useStore();
 
-  const { weather, isLoading: weatherLoading, setLocation, refresh } = useWeather();
+  const { weather, isLoading: weatherLoading, setLocation, refresh, detectAndApplyLocation, isDetectingLocation } = useWeather();
 
   const [searchCity, setSearchCity] = useState("");
   const [selectedDayIdx, setSelectedDayIdx] = useState<number>(0);
@@ -78,22 +78,10 @@ export function PredictionsView() {
     setSearchCity("");
   };
 
-  const handleGpsLocation = () => {
-    if (typeof navigator !== "undefined" && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          const res = await refresh({
-            name: "Current GPS Location",
-            country: "PH",
-            lat: pos.coords.latitude,
-            lon: pos.coords.longitude,
-          });
-          if (res) addActivity("Set weather location from device GPS", "info");
-        },
-        (err) => {
-          alert(`GPS lookup failed: ${err.message}`);
-        }
-      );
+  const handleGpsLocation = async () => {
+    const res = await detectAndApplyLocation(true);
+    if (res?.location) {
+      addActivity(`Pinpointed real-time location at ${res.location.name}`, "info");
     }
   };
 
@@ -293,12 +281,14 @@ export function PredictionsView() {
           </form>
 
           <button
+            type="button"
             onClick={handleGpsLocation}
+            disabled={isDetectingLocation}
             title="Use current device GPS location"
-            className="px-3 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5 text-xs font-medium"
+            className="px-3 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5 text-xs font-medium cursor-pointer"
           >
-            <i className="fa-solid fa-location-crosshairs text-xs text-emerald-600"></i>
-            <span className="hidden sm:inline">GPS</span>
+            <i className={`fa-solid fa-location-crosshairs text-xs text-emerald-600 ${isDetectingLocation ? "animate-spin" : ""}`}></i>
+            <span className="hidden sm:inline">{isDetectingLocation ? "Locating…" : "GPS"}</span>
           </button>
         </div>
       </div>
@@ -308,6 +298,19 @@ export function PredictionsView() {
           <i className="fa-solid fa-map-pin text-[10px] text-emerald-600"></i>
           PH Regions:
         </span>
+        {farmLocation.isGps && (
+          <button
+            type="button"
+            onClick={handleGpsLocation}
+            className="px-3 py-1.5 rounded-full text-xs font-bold transition shrink-0 flex items-center gap-1.5 border bg-emerald-600 text-white border-emerald-600 shadow-sm cursor-pointer"
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+            </span>
+            <span>{farmLocation.name} (My Location)</span>
+          </button>
+        )}
         {PHILIPPINES_FARM_LOCATIONS.map((loc) => {
           const isActive = farmLocation.name.toLowerCase() === loc.name.toLowerCase();
           return (
@@ -798,9 +801,9 @@ export function PredictionsView() {
               <i className="fa-solid fa-wand-magic-sparkles"></i>
             </span>
             <div>
-              <h3 className="text-base font-bold text-white">Google Gemini Agricultural Prognosis</h3>
+              <h3 className="text-base font-bold text-white">AgriSense AGI Agricultural Prognosis</h3>
               <p className="text-xs text-indigo-200">
-                AI agronomist synthesizing 7-day forecast & microclimate telemetry
+                AGI agronomist synthesizing 7-day forecast & microclimate telemetry
               </p>
             </div>
           </div>
@@ -812,7 +815,7 @@ export function PredictionsView() {
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 active:scale-98 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm disabled:opacity-50"
             >
               <i className={`fa-solid fa-rotate ${isAiLoading ? "animate-spin" : ""}`}></i>
-              {isAiLoading ? "Analyzing Telemetry..." : "Generate AI Agronomist Report"}
+              {isAiLoading ? "Analyzing with AGI..." : "Generate AGI Agronomist Report"}
             </button>
           </div>
         </div>
@@ -838,7 +841,7 @@ export function PredictionsView() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
               <div className="bg-black/20 rounded-xl p-4 border border-white/5 space-y-1">
                 <span className="text-[10px] uppercase font-bold text-emerald-400 block mb-1">
-                  Primary Agronomist Action
+                  Primary AGI Agronomist Action
                 </span>
                 <p className="text-xs font-bold text-white">
                   {aiReport.recommendedAction}
@@ -855,14 +858,14 @@ export function PredictionsView() {
 
             <div className="pt-2 text-[11px] text-indigo-200/80 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
               <span>Weather correlation: {aiReport.weatherImpactAnalysis}</span>
-              <span className="text-[10px] text-slate-400">Powered by Google Gemini 2.5 Flash</span>
+              <span className="text-[10px] text-slate-400">Powered by AgriSense AGI Engine</span>
             </div>
           </div>
         )}
 
         {!aiReport && !isAiLoading && (
           <p className="text-xs text-indigo-200/70 bg-white/5 rounded-xl p-4 border border-white/5 text-center leading-relaxed">
-            Click <strong>Generate AI Agronomist Report</strong> to run Google Gemini 2.5 Flash over your multi-day telemetry and 7-day forecast.
+            Click <strong>Generate AGI Agronomist Report</strong> to run AgriSense AGI over your multi-day telemetry and 7-day forecast.
           </p>
         )}
       </div>

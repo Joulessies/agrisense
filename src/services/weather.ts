@@ -41,6 +41,7 @@ export interface WeatherLocation {
   lat: number;
   lon: number;
   region?: string;
+  isGps?: boolean;
 }
 
 export interface WeatherData {
@@ -79,8 +80,74 @@ function wmoCodeToWeather(code: number): { description: string; icon: string } {
   return { description: 'Partly cloudy', icon: '02d' };
 }
 
+export async function detectUserLocation(): Promise<WeatherLocation> {
+  if (typeof window === 'undefined') {
+    return { name: 'Manila', country: 'PH', lat: 14.5995, lon: 120.9842, region: 'NCR' };
+  }
+
+  const getGpsPosition = (): Promise<GeolocationPosition> => {
+    return new Promise((resolve, reject) => {
+      if (!('geolocation' in navigator)) {
+        reject(new Error('Geolocation not supported'));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 8000,
+        maximumAge: 60000,
+      });
+    });
+  };
+
+  try {
+    const pos = await getGpsPosition();
+    const lat = pos.coords.latitude;
+    const lon = pos.coords.longitude;
+
+    try {
+      const geoRes = await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`
+      );
+      if (geoRes.ok) {
+        const data = await geoRes.json();
+        const cityName = data.city || data.locality || data.principalSubdivision || 'Local Farm';
+        const country = data.countryCode || 'PH';
+        const region = data.principalSubdivision || data.locality || 'Current Location';
+        const result: WeatherLocation = { name: cityName, country, lat, lon, region, isGps: true };
+        localStorage.setItem('agrisense_detected_location', JSON.stringify(result));
+        return result;
+      }
+    } catch {}
+
+    const result: WeatherLocation = { name: 'Current Location', country: 'PH', lat, lon, region: 'GPS Coordinates', isGps: true };
+    localStorage.setItem('agrisense_detected_location', JSON.stringify(result));
+    return result;
+  } catch {}
+
+  try {
+    const ipRes = await fetch('https://ipwho.is/');
+    if (ipRes.ok) {
+      const data = await ipRes.json();
+      if (data && data.success !== false && data.latitude && data.longitude) {
+        const result: WeatherLocation = {
+          name: data.city || data.region || 'Local Farm',
+          country: data.country_code || 'PH',
+          lat: data.latitude,
+          lon: data.longitude,
+          region: data.region || 'Local Region',
+          isGps: false,
+        };
+        localStorage.setItem('agrisense_detected_location', JSON.stringify(result));
+        return result;
+      }
+    }
+  } catch {}
+
+  return { name: 'Manila', country: 'PH', lat: 14.5995, lon: 120.9842, region: 'NCR' };
+}
+
 export async function fetchWeather(lat: number, lon: number, locationName?: string): Promise<WeatherData> {
-  const openMeteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,uv_index_max&timezone=auto`;
+  const openMeteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,uv_index_max&timezone=auto`;
 
   let currentData: CurrentWeather | null = null;
   let cityName = locationName || 'Farm Location';
@@ -114,6 +181,22 @@ export async function fetchWeather(lat: number, lon: number, locationName?: stri
     const meteoRes = await fetch(openMeteoUrl);
     if (meteoRes.ok) {
       const mData = await meteoRes.json();
+
+      if (mData.current && !currentData) {
+        const cCode = mData.current.weather_code ?? 0;
+        const { description, icon } = wmoCodeToWeather(cCode);
+        currentData = {
+          temp: Math.round(mData.current.temperature_2m),
+          feelsLike: Math.round(mData.current.apparent_temperature),
+          humidity: Math.round(mData.current.relative_humidity_2m),
+          windSpeed: Math.round(mData.current.wind_speed_10m),
+          description,
+          icon,
+          city: cityName,
+          country: countryCode,
+        };
+      }
+
       const daily = mData.daily;
       if (daily && daily.time) {
         forecast = daily.time.map((t: string, idx: number) => {
@@ -136,7 +219,7 @@ export async function fetchWeather(lat: number, lon: number, locationName?: stri
       }
     }
   } catch (e) {
-    console.warn('[Weather] Open-Meteo daily forecast failed:', e);
+    console.warn('[Weather] Open-Meteo fetch failed:', e);
   }
 
   if (forecast.length === 0 && isWeatherConfigured()) {
@@ -165,7 +248,7 @@ export async function fetchWeather(lat: number, lon: number, locationName?: stri
         forecast = Array.from(daysMap.values()).slice(0, 7);
       }
     } catch (e) {
-      console.error('[Weather] OpenWeather forecast fallback also failed:', e);
+      console.error('[Weather] OpenWeather forecast fallback failed:', e);
     }
   }
 

@@ -2,12 +2,17 @@
 
 import React from "react";
 import { useStore } from "@/store/useStore";
+import { supabase } from "@/lib/supabase";
 
 export function ActivityFeed() {
   const { activity } = useStore();
 
-  const handleClear = () => {
+  const handleClear = async () => {
     useStore.setState({ activity: [] });
+    try {
+      await supabase.from("activity_logs").delete().not("id", "is", null);
+    } catch {
+    }
   };
 
   return (

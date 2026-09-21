@@ -229,7 +229,9 @@ export function AnalyticsView() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-slate-900">Analytics</h2>
-          <p className="text-sm text-slate-500">Insights and trends across your crop&apos;s vital signs.</p>
+          <p className="text-sm text-slate-500">
+            Historical trends, health scoring, and AI-driven insights across your aloe vera crop&apos;s environmental vital signs.
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button

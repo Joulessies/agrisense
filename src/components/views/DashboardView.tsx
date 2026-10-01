@@ -23,7 +23,6 @@ export function DashboardView() {
     sensors,
     plant,
     nodes,
-    profiles,
     setCurrentView,
     syncNow,
     isSyncing,
@@ -34,12 +33,9 @@ export function DashboardView() {
   } = useStore();
 
   const userName = auth.currentUser?.name?.split(" ")[0] || "User";
-  const userCount = profiles.length;
-  const nodeCount = nodes.length;
   const activeNodes = nodes.filter((n) => n.online).length;
 
   const outOfRangeCount = Object.values(sensors).filter((s) => getStatus(s) !== "ok").length;
-  const optimalCount = Object.values(sensors).length - outOfRangeCount;
 
   const [showCareMatrix, setShowCareMatrix] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -187,58 +183,7 @@ export function DashboardView() {
         </div>
       )}
 
-      {role === "admin" ? (
-        <div className="bg-gradient-to-r from-indigo-700 via-indigo-600 to-blue-600 rounded-2xl p-6 text-white shadow-lg">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center shrink-0 shadow-inner">
-                <i className="fa-solid fa-shield-halved text-white text-xl"></i>
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-white">System Administration Overview</h3>
-                <p className="text-indigo-100 text-xs mt-1 max-w-xl leading-relaxed">
-                  Full control enabled. You can register new farm personnel, edit environmental alert thresholds, and monitor database telemetry.
-                </p>
-                <div className="flex flex-wrap items-center gap-3 mt-3">
-                  <button
-                    onClick={() => setCurrentView("users")}
-                    className="text-xs bg-white/20 hover:bg-white/30 text-white font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <i className="fa-solid fa-users text-xs"></i> Users Directory
-                  </button>
-                  <button
-                    onClick={() => setCurrentView("settings")}
-                    className="text-xs bg-white/20 hover:bg-white/30 text-white font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <i className="fa-solid fa-sliders text-xs"></i> Configure Thresholds
-                  </button>
-                  <button
-                    onClick={() => setCurrentView("database")}
-                    className="text-xs bg-white/20 hover:bg-white/30 text-white font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <i className="fa-solid fa-database text-xs"></i> Database Logs
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3 shrink-0">
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3.5 text-center min-w-[90px] border border-white/10">
-                <p className="text-2xl font-bold text-white leading-none">{userCount}</p>
-                <p className="text-[10px] text-indigo-200 mt-1 uppercase font-semibold tracking-wider">Users</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3.5 text-center min-w-[90px] border border-white/10">
-                <p className="text-2xl font-bold text-white leading-none">{nodeCount}</p>
-                <p className="text-[10px] text-indigo-200 mt-1 uppercase font-semibold tracking-wider">Nodes</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3.5 text-center min-w-[90px] border border-white/10">
-                <p className="text-2xl font-bold text-emerald-300 leading-none">{optimalCount}/4</p>
-                <p className="text-[10px] text-indigo-200 mt-1 uppercase font-semibold tracking-wider">Optimal</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
+      {role !== "admin" && (
         <div className="bg-gradient-to-r from-emerald-700 via-agri-600 to-teal-600 rounded-2xl p-6 text-white shadow-lg">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="flex items-start gap-4">

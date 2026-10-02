@@ -109,6 +109,11 @@ function LanPollerPanel() {
     return `${sec}s`;
   };
 
+  const isHostedOrigin =
+    typeof window !== "undefined" &&
+    window.location.hostname !== "localhost" &&
+    window.location.hostname !== "127.0.0.1";
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
@@ -132,6 +137,20 @@ function LanPollerPanel() {
       </div>
 
       <div className="pt-4">
+        {isHostedOrigin && (
+          <div className="mb-4 flex items-start gap-2.5 p-3.5 bg-amber-50 border border-amber-200 rounded-xl">
+            <i className="fa-solid fa-triangle-exclamation mt-0.5 shrink-0 text-amber-500 text-sm"></i>
+            <div>
+              <p className="font-semibold text-xs text-amber-900">LAN Direct unavailable on hosted deployments</p>
+              <p className="text-xs text-amber-800 mt-0.5">
+                You&apos;re accessing this app from <span className="font-mono font-semibold">{typeof window !== "undefined" ? window.location.hostname : ""}</span>.
+                Direct ESP32 polling only works when running the app locally (<span className="font-mono">localhost</span>) on the same Wi-Fi network as the sensor.
+                Your sensor data is still being received normally via Supabase — check the <strong>Database</strong> tab to confirm.
+              </p>
+            </div>
+          </div>
+        )}
+
         <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
           Device IP Address or Hostname
         </label>
@@ -200,6 +219,11 @@ function LanPollerPanel() {
             <div>
               <p className="font-semibold text-xs text-rose-900">Connection Failed</p>
               <p className="text-xs text-rose-700 mt-0.5">{errorMsg}</p>
+              {isHostedOrigin && (
+                <p className="text-xs text-rose-600 mt-1.5 italic">
+                  This is expected — LAN Direct requires the app to run on <span className="font-mono">localhost</span>. Your sensor is still logging data to Supabase.
+                </p>
+              )}
             </div>
           </div>
         )}

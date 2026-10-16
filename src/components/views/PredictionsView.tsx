@@ -5,6 +5,7 @@ import { useStore } from "@/store/useStore";
 import { useWeather } from "@/hooks/useWeather";
 import { PHILIPPINES_FARM_LOCATIONS } from "@/services/weather";
 import { predictCropOutcomes, DailyPrediction } from "@/services/cropPredictor";
+import { LstmModelHub } from "@/components/ui/LstmModelHub";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -49,6 +50,7 @@ export function PredictionsView() {
   const [selectedDayIdx, setSelectedDayIdx] = useState<number>(0);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiReport, setAiReport] = useState<any | null>(null);
+  const [viewMode, setViewMode] = useState<"timeline" | "lstm">("timeline");
 
   const prediction = useMemo(() => {
     if (!weather) return null;
@@ -139,9 +141,9 @@ export function PredictionsView() {
           fill: true,
           tension: 0.35,
           yAxisID: "yMoisture",
-          pointRadius: 5,
-          pointHoverRadius: 8,
-          pointBackgroundColor: "#10b981",
+          pointRadius: prediction.dailyForecastTimeline.map((_, idx) => (idx === selectedDayIdx ? 8 : 4)),
+          pointHoverRadius: 9,
+          pointBackgroundColor: prediction.dailyForecastTimeline.map((_, idx) => (idx === selectedDayIdx ? "#047857" : "#10b981")),
           pointBorderColor: "#ffffff",
           pointBorderWidth: 2,
         },
@@ -153,9 +155,9 @@ export function PredictionsView() {
           borderDash: [5, 4],
           tension: 0.25,
           yAxisID: "yTemp",
-          pointRadius: 4,
-          pointHoverRadius: 7,
-          pointBackgroundColor: "#f59e0b",
+          pointRadius: prediction.dailyForecastTimeline.map((_, idx) => (idx === selectedDayIdx ? 8 : 4)),
+          pointHoverRadius: 8,
+          pointBackgroundColor: prediction.dailyForecastTimeline.map((_, idx) => (idx === selectedDayIdx ? "#b45309" : "#f59e0b")),
           pointBorderColor: "#ffffff",
           pointBorderWidth: 2,
         },
@@ -171,7 +173,7 @@ export function PredictionsView() {
         },
       ],
     };
-  }, [prediction]);
+  }, [prediction, selectedDayIdx]);
 
   const chartOptions: any = {
     responsive: true,
@@ -293,7 +295,55 @@ export function PredictionsView() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs no-scrollbar">
+      {/* Primary Mode Navigation: 7-Day Microclimate Timeline vs. Bi-LSTM Neural Engine */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl p-3 border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
+          <button
+            type="button"
+            onClick={() => setViewMode("timeline")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+              viewMode === "timeline"
+                ? "bg-white text-emerald-700 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <i className="fa-solid fa-calendar-week text-xs"></i>
+            <span>7-Day Microclimate Timeline</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("lstm")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+              viewMode === "lstm"
+                ? "bg-indigo-600 text-white shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <i className="fa-solid fa-brain text-xs"></i>
+            <span>Bi-LSTM Neural Engine Hub</span>
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                viewMode === "lstm" ? "bg-white/20 text-white" : "bg-indigo-50 text-indigo-700 border border-indigo-200"
+              }`}
+            >
+              R² 88.8%
+            </span>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 px-2 text-xs text-slate-500">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+          <span className="font-semibold text-slate-800">Bi-LSTM Model Active</span>
+          <span className="text-slate-300">•</span>
+          <span>1,440 Hourly Timesteps Evaluated</span>
+        </div>
+      </div>
+
+      {viewMode === "lstm" ? (
+        <LstmModelHub />
+      ) : (
+        <>
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs no-scrollbar">
         <span className="text-slate-400 font-bold uppercase text-[10px] shrink-0 mr-1 flex items-center gap-1">
           <i className="fa-solid fa-map-pin text-[10px] text-emerald-600"></i>
           PH Regions:
@@ -451,21 +501,22 @@ export function PredictionsView() {
 
               return (
                 <button
+                  type="button"
                   key={d.date}
                   onClick={() => setSelectedDayIdx(idx)}
-                  className={`rounded-2xl p-4 text-left border transition-all duration-200 flex flex-col justify-between relative overflow-hidden ${
+                  className={`rounded-2xl p-4 text-left border transition-all duration-200 flex flex-col justify-between relative overflow-hidden cursor-pointer ${
                     isSelected
-                      ? "bg-white border-emerald-500 shadow-md ring-2 ring-emerald-500/20 -translate-y-0.5"
+                      ? "bg-white border-emerald-500 shadow-md ring-2 ring-emerald-500/25 -translate-y-1"
                       : "bg-white/90 hover:bg-white border-slate-200 hover:border-slate-300 shadow-xs hover:shadow-sm"
                   }`}
                 >
                   {isSelected && (
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500"></div>
+                    <div className="absolute top-0 left-0 right-0 h-1.5 bg-emerald-500"></div>
                   )}
 
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="font-bold text-xs text-slate-900">{dayName}</span>
+                      <span className={`font-bold text-xs ${isSelected ? "text-emerald-700 font-extrabold" : "text-slate-900"}`}>{dayName}</span>
                       <span className="text-[10px] text-slate-400 font-medium">{dateFormatted}</span>
                     </div>
 
@@ -500,11 +551,176 @@ export function PredictionsView() {
                     <span className={`block text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full text-center truncate border mt-1 ${badgeColors}`}>
                       {d.stressLevel.replace("_", " ")}
                     </span>
+
+                    {isSelected && (
+                      <span className="block text-[9px] font-black uppercase tracking-wider text-center text-emerald-700 bg-emerald-50 rounded py-0.5 border border-emerald-200 mt-1">
+                        ● Inspecting
+                      </span>
+                    )}
                   </div>
                 </button>
               );
             })}
           </div>
+
+          {selectedDay && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-3 animate-in fade-in duration-200">
+              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm lg:col-span-2 space-y-5">
+                <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      Day {selectedDay.dayIndex + 1} Selected Inspection
+                    </span>
+                    <h3 className="text-base font-bold text-slate-900 mt-1">
+                      Day {selectedDay.dayIndex + 1} — {new Date(selectedDay.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+                    </h3>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[11px] font-semibold text-slate-400 block">Projected Vitality</span>
+                    <span className="text-2xl font-black text-emerald-600">{selectedDay.vitalityScore}%</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="bg-slate-50/80 rounded-xl p-3.5 text-center border border-slate-100">
+                    <p className="text-[10px] text-slate-400 uppercase font-semibold">Soil Moisture</p>
+                    <p className="text-lg font-black text-slate-800 mt-0.5">{selectedDay.simulatedSoilMoisture}%</p>
+                  </div>
+                  <div className="bg-slate-50/80 rounded-xl p-3.5 text-center border border-slate-100">
+                    <p className="text-[10px] text-slate-400 uppercase font-semibold">Drought Days</p>
+                    <p className="text-lg font-black text-slate-800 mt-0.5">{selectedDay.daysWithoutWater}d</p>
+                  </div>
+                  <div className="bg-slate-50/80 rounded-xl p-3.5 text-center border border-slate-100">
+                    <p className="text-[10px] text-slate-400 uppercase font-semibold">Day High Temp</p>
+                    <p className="text-lg font-black text-amber-600 mt-0.5">{selectedDay.simulatedTempMax}°C</p>
+                  </div>
+                  <div className="bg-slate-50/80 rounded-xl p-3.5 text-center border border-slate-100">
+                    <p className="text-[10px] text-slate-400 uppercase font-semibold">Rain Volume</p>
+                    <p className="text-lg font-black text-sky-600 mt-0.5">{selectedDay.weather.rainMm} mm</p>
+                  </div>
+                </div>
+
+                {selectedDay.alerts.length > 0 ? (
+                  <div className="bg-amber-50/90 border border-amber-200 rounded-xl p-4 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <i className="fa-solid fa-triangle-exclamation text-amber-600 text-sm"></i>
+                      <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wide">
+                        Predicted State: {selectedDay.primaryCondition}
+                      </h4>
+                    </div>
+                    {selectedDay.alerts.map((alert, aIdx) => (
+                      <p key={aIdx} className="text-xs text-amber-800 leading-relaxed pl-5">
+                        • {alert}
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-emerald-50/90 border border-emerald-200 rounded-xl p-4 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <i className="fa-solid fa-circle-check text-emerald-600 text-sm"></i>
+                      <h4 className="text-xs font-bold text-emerald-950 uppercase tracking-wide">
+                        Predicted State: {selectedDay.primaryCondition}
+                      </h4>
+                    </div>
+                    <p className="text-xs text-emerald-800 leading-relaxed pl-5">
+                      • Environmental vital signs remain optimal and within physiological safety thresholds.
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                    <i className="fa-solid fa-leaf text-emerald-600 text-xs"></i>
+                    Physical Leaf Characteristics & Symptom Diagnosis
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
+                    <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/60">
+                      <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Thickness</span>
+                      <span className="font-bold text-slate-800 text-xs mt-0.5 block">{selectedDay.leafSymptom.thickness}</span>
+                    </div>
+                    <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/60">
+                      <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Texture</span>
+                      <span className="font-bold text-slate-800 text-xs mt-0.5 block">{selectedDay.leafSymptom.texture}</span>
+                    </div>
+                    <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/60">
+                      <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Coloring</span>
+                      <span className="font-bold text-slate-800 text-xs mt-0.5 block">{selectedDay.leafSymptom.color}</span>
+                    </div>
+                    <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/60">
+                      <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Posture</span>
+                      <span className="font-bold text-slate-800 text-xs mt-0.5 block">{selectedDay.leafSymptom.posture}</span>
+                    </div>
+                    <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/60 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Root Health & Substrate State</span>
+                      <span className="font-bold text-slate-800 text-xs mt-0.5 block">{selectedDay.leafSymptom.roots}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 text-white rounded-2xl p-6 shadow-md flex flex-col justify-between space-y-4">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                        <i className="fa-solid fa-clipboard-check text-sm"></i>
+                      </span>
+                      <div>
+                        <h4 className="text-sm font-bold text-white">Recommended Actions</h4>
+                        <p className="text-[10px] text-slate-400">Rules-based irrigation protocol</p>
+                      </div>
+                    </div>
+
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-emerald-300 border border-white/10">
+                      {prediction?.daysUntilWaterRequired === 0 ? "Due Today" : `In ${prediction?.daysUntilWaterRequired}d`}
+                    </span>
+                  </div>
+
+                  <div className="bg-white/5 rounded-xl p-3.5 border border-white/10 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold">Irrigation Interval</span>
+                      <p className="text-xs font-bold text-white mt-0.5">
+                        {prediction?.seasonType === "dry_season" ? "Dry Season (7–10 days)" : "Rainy Season (14–21 days)"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold">Next Watering Due</span>
+                      <p className="text-xs font-black text-emerald-400 mt-0.5">
+                        {prediction?.nextRecommendedWateringDate}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {prediction?.actionPlan.map((act, i) => (
+                      <div key={i} className="bg-white/10 rounded-xl p-3.5 border border-white/10 space-y-1">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1">
+                          <i className="fa-solid fa-circle-arrow-right text-[8px]"></i>
+                          {act.priority} priority
+                        </span>
+                        <p className="text-xs font-bold text-white">{act.action}</p>
+                        <p className="text-[11px] text-slate-300 leading-relaxed">{act.reason}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-white/10 space-y-2.5">
+                  <button
+                    type="button"
+                    onClick={() => recordWatering()}
+                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                  >
+                    <i className="fa-solid fa-droplet text-xs"></i>
+                    I Have Watered The Aloe Vera (Reset)
+                  </button>
+                  <p className="text-[10px] text-slate-400 text-center">
+                    Updates moisture reading and resets drought tracking to Day 0
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -538,150 +754,6 @@ export function PredictionsView() {
 
           <div className="h-72 w-full pt-1">
             <Line data={chartData} options={chartOptions} />
-          </div>
-        </div>
-      )}
-
-      {selectedDay && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm lg:col-span-2 space-y-5">
-            <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Day Inspection Breakdown
-                </span>
-                <h3 className="text-base font-bold text-slate-900 mt-0.5">
-                  Day {selectedDay.dayIndex + 1} — {new Date(selectedDay.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-                </h3>
-              </div>
-              <div className="text-right">
-                <span className="text-[11px] font-semibold text-slate-400 block">Projected Vitality</span>
-                <span className="text-2xl font-black text-emerald-600">{selectedDay.vitalityScore}%</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-slate-50/80 rounded-xl p-3.5 text-center border border-slate-100">
-                <p className="text-[10px] text-slate-400 uppercase font-semibold">Soil Moisture</p>
-                <p className="text-lg font-black text-slate-800 mt-0.5">{selectedDay.simulatedSoilMoisture}%</p>
-              </div>
-              <div className="bg-slate-50/80 rounded-xl p-3.5 text-center border border-slate-100">
-                <p className="text-[10px] text-slate-400 uppercase font-semibold">Drought Days</p>
-                <p className="text-lg font-black text-slate-800 mt-0.5">{selectedDay.daysWithoutWater}d</p>
-              </div>
-              <div className="bg-slate-50/80 rounded-xl p-3.5 text-center border border-slate-100">
-                <p className="text-[10px] text-slate-400 uppercase font-semibold">Day High Temp</p>
-                <p className="text-lg font-black text-amber-600 mt-0.5">{selectedDay.simulatedTempMax}°C</p>
-              </div>
-              <div className="bg-slate-50/80 rounded-xl p-3.5 text-center border border-slate-100">
-                <p className="text-[10px] text-slate-400 uppercase font-semibold">Rain Volume</p>
-                <p className="text-lg font-black text-sky-600 mt-0.5">{selectedDay.weather.rainMm} mm</p>
-              </div>
-            </div>
-
-            <div className="bg-amber-50/90 border border-amber-200 rounded-xl p-4 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <i className="fa-solid fa-triangle-exclamation text-amber-600 text-sm"></i>
-                <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wide">
-                  Predicted State: {selectedDay.primaryCondition}
-                </h4>
-              </div>
-              {selectedDay.alerts.map((alert, aIdx) => (
-                <p key={aIdx} className="text-xs text-amber-800 leading-relaxed pl-5">
-                  • {alert}
-                </p>
-              ))}
-            </div>
-
-            <div>
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
-                <i className="fa-solid fa-leaf text-emerald-600 text-xs"></i>
-                Physical Leaf Characteristics & Symptom Diagnosis
-              </h4>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
-                <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/60">
-                  <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Thickness</span>
-                  <span className="font-bold text-slate-800 text-xs mt-0.5 block">{selectedDay.leafSymptom.thickness}</span>
-                </div>
-                <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/60">
-                  <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Texture</span>
-                  <span className="font-bold text-slate-800 text-xs mt-0.5 block">{selectedDay.leafSymptom.texture}</span>
-                </div>
-                <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/60">
-                  <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Coloring</span>
-                  <span className="font-bold text-slate-800 text-xs mt-0.5 block">{selectedDay.leafSymptom.color}</span>
-                </div>
-                <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/60">
-                  <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Posture</span>
-                  <span className="font-bold text-slate-800 text-xs mt-0.5 block">{selectedDay.leafSymptom.posture}</span>
-                </div>
-                <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/60 sm:col-span-2">
-                  <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Root Health & Substrate State</span>
-                  <span className="font-bold text-slate-800 text-xs mt-0.5 block">{selectedDay.leafSymptom.roots}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 text-white rounded-2xl p-6 shadow-md flex flex-col justify-between space-y-4">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-white/10">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                    <i className="fa-solid fa-clipboard-check text-sm"></i>
-                  </span>
-                  <div>
-                    <h4 className="text-sm font-bold text-white">Recommended Actions</h4>
-                    <p className="text-[10px] text-slate-400">Rules-based irrigation protocol</p>
-                  </div>
-                </div>
-
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-emerald-300 border border-white/10">
-                  {prediction?.daysUntilWaterRequired === 0 ? "Due Today" : `In ${prediction?.daysUntilWaterRequired}d`}
-                </span>
-              </div>
-
-              <div className="bg-white/5 rounded-xl p-3.5 border border-white/10 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] text-slate-400 uppercase font-semibold">Irrigation Interval</span>
-                  <p className="text-xs font-bold text-white mt-0.5">
-                    {prediction?.seasonType === "dry_season" ? "Dry Season (7–10 days)" : "Rainy Season (14–21 days)"}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] text-slate-400 uppercase font-semibold">Next Watering Due</span>
-                  <p className="text-xs font-black text-emerald-400 mt-0.5">
-                    {prediction?.nextRecommendedWateringDate}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-2.5">
-                {prediction?.actionPlan.map((act, i) => (
-                  <div key={i} className="bg-white/10 rounded-xl p-3.5 border border-white/10 space-y-1">
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1">
-                      <i className="fa-solid fa-circle-arrow-right text-[8px]"></i>
-                      {act.priority} priority
-                    </span>
-                    <p className="text-xs font-bold text-white">{act.action}</p>
-                    <p className="text-[11px] text-slate-300 leading-relaxed">{act.reason}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-white/10 space-y-2.5">
-              <button
-                onClick={() => recordWatering()}
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm"
-              >
-                <i className="fa-solid fa-droplet text-xs"></i>
-                I Have Watered The Aloe Vera (Reset)
-              </button>
-              <p className="text-[10px] text-slate-400 text-center">
-                Updates moisture reading and resets drought tracking to Day 0
-              </p>
-            </div>
           </div>
         </div>
       )}
@@ -869,6 +941,8 @@ export function PredictionsView() {
           </p>
         )}
       </div>
+        </>
+      )}
     </section>
   );
 }

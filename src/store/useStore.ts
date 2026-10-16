@@ -78,12 +78,23 @@ interface AppState {
   dismissedAlerts: Set<string>;
 
   realtimeStatus: "connected" | "disconnected";
+  telemetrySource: "simulated" | "hardware";
+  lastHardwarePacketAt: number | null;
   currentView: string;
 
   farmLocation: FarmLocation;
   farmSettings: FarmSettings;
   manualWateringDays: number | null;
   lastWateredDate: string | null;
+
+  criticalAlertSettings: {
+    minSoilMoisture: number;
+    maxSoilMoisture: number;
+    maxTemp: number;
+    minTemp: number;
+  };
+  setCriticalAlertSettings: (settings: Partial<{ minSoilMoisture: number; maxSoilMoisture: number; maxTemp: number; minTemp: number }>) => void;
+  setTelemetrySource: (source: "simulated" | "hardware") => void;
 
   setCurrentView: (view: string) => void;
   setRole: (role: Role) => void;
@@ -118,71 +129,107 @@ interface AppState {
   setStreamLatency: (ms: number | null) => void;
 }
 
+const DEFAULT_SENSORS: Record<string, SensorData> = {
+  soilMoisture: {
+    id: "soilMoisture",
+    label: "Soil Moisture",
+    value: 18,
+    unit: "%",
+    min: 0,
+    max: 100,
+    decimals: 0,
+    optimal: { min: 20, max: 40 },
+    icon: "fa-droplet",
+    iconBg: "bg-amber-50",
+    iconColor: "text-amber-500",
+    barColor: "bg-amber-400",
+  },
+  temperature: {
+    id: "temperature",
+    label: "Temperature",
+    value: 28,
+    unit: "°C",
+    min: 0,
+    max: 50,
+    decimals: 0,
+    optimal: { min: 25, max: 32 },
+    icon: "fa-temperature-half",
+    iconBg: "bg-agri-50",
+    iconColor: "text-agri-600",
+    barColor: "bg-agri-500",
+  },
+  humidity: {
+    id: "humidity",
+    label: "Humidity",
+    value: 65,
+    unit: "%",
+    min: 0,
+    max: 100,
+    decimals: 0,
+    optimal: { min: 40, max: 70 },
+    icon: "fa-cloud",
+    iconBg: "bg-sky-50",
+    iconColor: "text-sky-500",
+    barColor: "bg-sky-400",
+  },
+  light: {
+    id: "light",
+    label: "Light Intensity",
+    value: 15000,
+    unit: "lux",
+    min: 0,
+    max: 25000,
+    decimals: 0,
+    optimal: { min: 10000, max: 20000 },
+    icon: "fa-sun",
+    iconBg: "bg-yellow-50",
+    iconColor: "text-yellow-500",
+    barColor: "bg-yellow-400",
+  },
+};
+
 export const useStore = create<AppState>((set) => ({
   role: "farmer",
   auth: {
     isAuthenticated: false,
     currentUser: null,
   },
-  sensors: {
-    soilMoisture: {
-      id: "soilMoisture",
-      label: "Soil Moisture",
-      value: 18,
-      unit: "%",
-      min: 0,
-      max: 100,
-      decimals: 0,
-      optimal: { min: 20, max: 40 },
-      icon: "fa-droplet",
-      iconBg: "bg-amber-50",
-      iconColor: "text-amber-500",
-      barColor: "bg-amber-400",
-    },
-    temperature: {
-      id: "temperature",
-      label: "Temperature",
-      value: 28,
-      unit: "°C",
-      min: 0,
-      max: 50,
-      decimals: 0,
-      optimal: { min: 25, max: 32 },
-      icon: "fa-temperature-half",
-      iconBg: "bg-agri-50",
-      iconColor: "text-agri-600",
-      barColor: "bg-agri-500",
-    },
-    humidity: {
-      id: "humidity",
-      label: "Humidity",
-      value: 65,
-      unit: "%",
-      min: 0,
-      max: 100,
-      decimals: 0,
-      optimal: { min: 40, max: 70 },
-      icon: "fa-cloud",
-      iconBg: "bg-sky-50",
-      iconColor: "text-sky-500",
-      barColor: "bg-sky-400",
-    },
-    light: {
-      id: "light",
-      label: "Light Intensity",
-      value: 15000,
-      unit: "lux",
-      min: 0,
-      max: 25000,
-      decimals: 0,
-      optimal: { min: 10000, max: 20000 },
-      icon: "fa-sun",
-      iconBg: "bg-yellow-50",
-      iconColor: "text-yellow-500",
-      barColor: "bg-yellow-400",
-    },
-  },
-  plant: { age: 0, harvestAge: 0 },
+  sensors: typeof window !== "undefined" && localStorage.getItem("agrisense_sensor_thresholds")
+    ? (() => {
+        try {
+          const saved = JSON.parse(localStorage.getItem("agrisense_sensor_thresholds")!);
+          const res = { ...DEFAULT_SENSORS };
+          Object.keys(saved).forEach((k) => {
+            if (res[k]) {
+              res[k] = { ...res[k], optimal: saved[k] };
+            }
+          });
+          return res;
+        } catch {
+          return DEFAULT_SENSORS;
+        }
+      })()
+    : DEFAULT_SENSORS,
+  plant: typeof window !== "undefined" && localStorage.getItem("agrisense_plant_info")
+    ? (() => {
+        try {
+          return JSON.parse(localStorage.getItem("agrisense_plant_info")!);
+        } catch {
+          return { age: 180, harvestAge: 240 };
+        }
+      })()
+    : { age: 180, harvestAge: 240 },
+  criticalAlertSettings: typeof window !== "undefined" && localStorage.getItem("agrisense_critical_settings")
+    ? (() => {
+        try {
+          return JSON.parse(localStorage.getItem("agrisense_critical_settings")!);
+        } catch {
+          return { minSoilMoisture: 10, maxSoilMoisture: 65, maxTemp: 38, minTemp: 12 };
+        }
+      })()
+    : { minSoilMoisture: 10, maxSoilMoisture: 65, maxTemp: 38, minTemp: 12 },
+  telemetrySource: "simulated",
+  lastHardwarePacketAt: null,
   activity: [],
   nodes: [],
   profiles: [],
@@ -287,20 +334,41 @@ export const useStore = create<AppState>((set) => ({
 
   setNodes: (nodes) => set({ nodes }),
   setProfiles: (profiles) => set({ profiles }),
-  setPlant: (plant) => set({ plant }),
+  setPlant: (plant) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("agrisense_plant_info", JSON.stringify(plant));
+    }
+    set({ plant });
+  },
   setActivity: (activity) => set({ activity }),
   setThresholds: (thresholds) => set((state) => {
     const updatedSensors = { ...state.sensors };
+    const savedMap: Record<string, { min: number; max: number }> = {};
     thresholds.forEach((t) => {
       if (updatedSensors[t.id]) {
         updatedSensors[t.id] = {
           ...updatedSensors[t.id],
           optimal: { min: t.optimal_min, max: t.optimal_max },
         };
+        savedMap[t.id] = { min: t.optimal_min, max: t.optimal_max };
       }
     });
+    if (typeof window !== "undefined") {
+      try {
+        const existing = JSON.parse(localStorage.getItem("agrisense_sensor_thresholds") || "{}");
+        localStorage.setItem("agrisense_sensor_thresholds", JSON.stringify({ ...existing, ...savedMap }));
+      } catch {}
+    }
     return { sensors: updatedSensors };
   }),
+  setCriticalAlertSettings: (settings) => set((state) => {
+    const updated = { ...state.criticalAlertSettings, ...settings };
+    if (typeof window !== "undefined") {
+      localStorage.setItem("agrisense_critical_settings", JSON.stringify(updated));
+    }
+    return { criticalAlertSettings: updated };
+  }),
+  setTelemetrySource: (source) => set({ telemetrySource: source }),
 
   setFarmLocation: (loc) => set({ farmLocation: loc }),
   setFarmSettings: (settings) => set((state) => ({
@@ -473,18 +541,26 @@ export const useStore = create<AppState>((set) => ({
       }
       const now = ctx.currentTime;
       if (type === "critical") {
-        const freqs = [880, 659, 880];
-        freqs.forEach((freq, idx) => {
+        // High-urgency alarm siren: alternating multi-tone pulsing warble
+        const pulses = [
+          { f: 987.77, dur: 0.16 }, // B5
+          { f: 783.99, dur: 0.16 }, // G5
+          { f: 987.77, dur: 0.16 }, // B5
+          { f: 783.99, dur: 0.24 }, // G5 with hold
+        ];
+        let offset = 0;
+        pulses.forEach((p) => {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
-          osc.type = "sine";
-          osc.frequency.setValueAtTime(freq, now + idx * 0.18);
-          gain.gain.setValueAtTime(0.2, now + idx * 0.18);
-          gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.18 + 0.16);
+          osc.type = "sawtooth";
+          osc.frequency.setValueAtTime(p.f, now + offset);
+          gain.gain.setValueAtTime(0.22, now + offset);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + offset + p.dur - 0.02);
           osc.connect(gain);
           gain.connect(ctx.destination);
-          osc.start(now + idx * 0.18);
-          osc.stop(now + idx * 0.18 + 0.17);
+          osc.start(now + offset);
+          osc.stop(now + offset + p.dur);
+          offset += p.dur;
         });
       } else {
         const freqs = [587.33, 880];

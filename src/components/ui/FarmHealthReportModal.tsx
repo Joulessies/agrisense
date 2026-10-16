@@ -226,6 +226,34 @@ export function FarmHealthReportModal({
               )}
             </div>
 
+            <div>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-2 border-b border-slate-200 pb-1">
+                4. Bi-LSTM Neural Network Validation Audit (Model v1.2.0 Checkpoint)
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                  <p className="text-[10px] text-slate-500 font-bold uppercase">Architecture</p>
+                  <p className="font-bold text-slate-900 mt-0.5">Bi-LSTM (2x Layers)</p>
+                  <p className="text-[10px] text-slate-500">64 / 32 Units • Dropout 0.2</p>
+                </div>
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                  <p className="text-[10px] text-slate-500 font-bold uppercase">Plant Vitality Fit</p>
+                  <p className="font-bold text-emerald-700 mt-0.5">R² = 88.75%</p>
+                  <p className="text-[10px] text-slate-500">MAE: 0.71 • RMSE: 0.88</p>
+                </div>
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                  <p className="text-[10px] text-slate-500 font-bold uppercase">Soil Moisture Fit</p>
+                  <p className="font-bold text-sky-700 mt-0.5">R² = 98.68%</p>
+                  <p className="text-[10px] text-slate-500">MAE: 0.36 • RMSE: 0.46</p>
+                </div>
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                  <p className="text-[10px] text-slate-500 font-bold uppercase">Training Dataset</p>
+                  <p className="font-bold text-indigo-700 mt-0.5">1,440 Hourly Steps</p>
+                  <p className="text-[10px] text-slate-500">60 Days Evaluated</p>
+                </div>
+              </div>
+            </div>
+
             <div className="pt-6 border-t border-slate-300 grid grid-cols-2 gap-8 text-xs text-slate-600">
               <div>
                 <p className="font-bold text-slate-900">Certified Field Operator:</p>

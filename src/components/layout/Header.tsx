@@ -6,7 +6,7 @@ import React, { useState } from "react";
 import { LiveHardwareConnectModal } from "@/components/ui/LiveHardwareConnectModal";
 
 export function Header() {
-  const { currentView, role, auth, realtimeStatus, lastSync, isSyncing, syncNow, logout } = useStore();
+  const { currentView, role, auth, realtimeStatus, lastSync, isSyncing, syncNow, logout, telemetrySource, lastHardwarePacketAt } = useStore();
   const router = useRouter();
   const [showConnectModal, setShowConnectModal] = useState(false);
 
@@ -34,19 +34,39 @@ export function Header() {
 
   const diffMs = lastSync ? Date.now() - new Date(lastSync).getTime() : Infinity;
   const isFresh = diffMs < 120000;
-  const isConnected = realtimeStatus === "connected" && isFresh;
 
-  const statusLabel = isConnected
-    ? "Real-Time: Active"
-    : realtimeStatus === "connected"
-    ? "Real-Time: Connected"
-    : "Real-Time: Offline";
+  // Determine whether we are receiving physical hardware telemetry or simulated dataset sync
+  const isHardwareLive =
+    telemetrySource === "hardware" &&
+    Boolean(lastHardwarePacketAt) &&
+    Date.now() - new Date(lastHardwarePacketAt!).getTime() < 45000;
 
-  const statusDotColor = isConnected
-    ? "bg-emerald-500"
-    : realtimeStatus === "connected"
-    ? "bg-amber-400"
-    : "bg-slate-400";
+  let statusLabel = "Offline";
+  let statusDotColor = "bg-slate-400";
+  let isPulsing = false;
+  let statusBadgeClass = "border-slate-200 text-slate-600 bg-white hover:bg-slate-50";
+
+  if (isHardwareLive) {
+    statusLabel = "Hardware: Live Link";
+    statusDotColor = "bg-emerald-500";
+    isPulsing = true;
+    statusBadgeClass = "border-emerald-200 text-emerald-800 bg-emerald-50/70 hover:bg-emerald-100/70";
+  } else if (isFresh) {
+    statusLabel = "Simulated: Synced";
+    statusDotColor = "bg-sky-500";
+    isPulsing = false;
+    statusBadgeClass = "border-sky-200 text-sky-800 bg-sky-50/70 hover:bg-sky-100/70";
+  } else if (realtimeStatus === "connected") {
+    statusLabel = "Simulated: Idle";
+    statusDotColor = "bg-amber-400";
+    isPulsing = false;
+    statusBadgeClass = "border-amber-200 text-amber-800 bg-amber-50/70 hover:bg-amber-100/70";
+  } else {
+    statusLabel = "Real-Time: Offline";
+    statusDotColor = "bg-slate-400";
+    isPulsing = false;
+    statusBadgeClass = "border-slate-200 text-slate-500 bg-slate-50 hover:bg-slate-100";
+  }
 
   const formatSyncTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -74,17 +94,21 @@ export function Header() {
           <button
             type="button"
             onClick={() => setShowConnectModal(true)}
-            className="hidden md:flex items-center gap-2 text-xs py-1.5 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition cursor-pointer"
-            title="Click to view IoT hardware connection and streaming settings"
+            className={`hidden md:flex items-center gap-2 text-xs py-1.5 px-3 rounded-xl border transition cursor-pointer ${statusBadgeClass}`}
+            title={
+              isHardwareLive
+                ? "Physical ESP32 hardware node telemetry stream is live"
+                : "Greenhouse telemetry is simulated / synced from database. Click to view ESP32 hardware streaming settings."
+            }
           >
             <span className="relative flex w-2.5 h-2.5">
-              {isConnected && (
+              {isPulsing && (
                 <span className="absolute inline-flex w-full h-full rounded-full bg-emerald-400 opacity-75 animate-ping"></span>
               )}
               <span className={`relative inline-flex w-2.5 h-2.5 rounded-full ${statusDotColor}`}></span>
             </span>
-            <span className="font-semibold text-slate-800">{statusLabel}</span>
-            <i className="fa-solid fa-sliders text-[10px] text-slate-400 ml-0.5"></i>
+            <span className="font-semibold">{statusLabel}</span>
+            <i className="fa-solid fa-sliders text-[10px] opacity-60 ml-0.5"></i>
           </button>
 
           <span className="hidden md:inline text-slate-300">•</span>

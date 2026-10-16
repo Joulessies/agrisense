@@ -22,14 +22,21 @@ export function useRealtimeSync() {
   const lastKnownReadingId = useRef<string | number | null>(null);
 
   const checkCriticalAlerts = (soil?: number | null, temp?: number | null) => {
-    const { audioAlertsEnabled, playAlertChime } = useStore.getState();
+    const { audioAlertsEnabled, playAlertChime, criticalAlertSettings } = useStore.getState();
     if (!audioAlertsEnabled) return;
     const now = Date.now();
-    if (now - lastAudioChimeMs.current < 90000) return;
+    if (now - lastAudioChimeMs.current < 45000) return;
+
+    const limits = criticalAlertSettings || {
+      minSoilMoisture: 10,
+      maxSoilMoisture: 65,
+      maxTemp: 38,
+      minTemp: 12,
+    };
 
     const isCritical =
-      (soil != null && (soil < 10 || soil > 65)) ||
-      (temp != null && (temp > 38 || temp < 12));
+      (soil != null && (soil < limits.minSoilMoisture || soil > limits.maxSoilMoisture)) ||
+      (temp != null && (temp > limits.maxTemp || temp < limits.minTemp));
 
     if (isCritical) {
       lastAudioChimeMs.current = now;
@@ -73,7 +80,21 @@ export function useRealtimeSync() {
           if (row.humidity != null) updateSensor('humidity', row.humidity);
           if (row.lux != null) updateSensor('light', row.lux);
           checkCriticalAlerts(row.soil_moisture, row.temperature);
-          useStore.setState({ lastSync: new Date(), realtimeStatus: 'connected' });
+
+          const isHardware = Boolean(
+            row.device_id &&
+            !row.device_id.includes('demo') &&
+            !row.device_id.includes('remedy') &&
+            (row.device_id.startsWith('esp32') || row.device_id.startsWith('agrisense-') || row.device_id === 'agrisense-lan') &&
+            (Date.now() - new Date(row.recorded_at).getTime() < 45000)
+          );
+
+          useStore.setState({
+            lastSync: new Date(),
+            realtimeStatus: 'connected',
+            telemetrySource: isHardware ? 'hardware' : 'simulated',
+            lastHardwarePacketAt: isHardware ? new Date(row.recorded_at).getTime() : null,
+          });
         }
       } catch (err) {
         console.error("Error fetching initial database state:", err);
@@ -91,9 +112,19 @@ export function useRealtimeSync() {
       checkCriticalAlerts(row.soil_moisture, row.temperature);
 
       useStore.getState().incrementPacketCount?.();
+
+      const isHardware = Boolean(
+        row.device_id &&
+        !row.device_id.includes('demo') &&
+        !row.device_id.includes('remedy') &&
+        (row.device_id.startsWith('esp32') || row.device_id.startsWith('agrisense-') || row.device_id === 'agrisense-lan')
+      );
+
       useStore.setState({ 
         lastSync: new Date(),
-        realtimeStatus: 'connected'
+        realtimeStatus: 'connected',
+        telemetrySource: isHardware ? 'hardware' : 'simulated',
+        lastHardwarePacketAt: isHardware ? Date.now() : useStore.getState().lastHardwarePacketAt,
       });
     };
 
@@ -214,7 +245,12 @@ export function useRealtimeSync() {
 
           useStore.getState().incrementPacketCount?.();
           const now = new Date();
-          useStore.setState({ lastSync: now, realtimeStatus: 'connected' });
+          useStore.setState({
+            lastSync: now,
+            realtimeStatus: 'connected',
+            telemetrySource: 'hardware',
+            lastHardwarePacketAt: now.getTime(),
+          });
 
           const nowMs = now.getTime();
           if (nowMs - lastLanDbInsertMs.current > 15000) {

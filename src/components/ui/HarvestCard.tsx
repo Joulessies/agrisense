@@ -17,7 +17,7 @@ export function HarvestCard() {
     setPlant({ age: newAge, harvestAge });
     addActivity(`Recorded Aloe vera mature leaf harvest at age ${age} days`, "ok");
     try {
-      await supabase.from("plant_info").upsert([{ id: 1, age: newAge, harvest_age: harvestAge }]);
+      await supabase.from("plant_info").update({ age: newAge, harvest_age: harvestAge }).eq("id", 1);
     } catch (e: any) {
       console.warn("Failed to persist harvest to plant_info:", e?.message);
     }

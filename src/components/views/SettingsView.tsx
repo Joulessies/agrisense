@@ -4,100 +4,106 @@ import React, { useState, useEffect } from "react";
 import { useStore } from "@/store/useStore";
 import { supabase } from "@/lib/supabase";
 
-const PRESETS: Record<string, { label: string; description: string; values: Record<string, { min: number; max: number }> }> = {
-  standard: {
-    label: "Standard Aloe Vera",
-    description: "Ideal year-round baseline for mature Aloe Barbadensis.",
-    values: {
-      soilMoisture: { min: 20, max: 40 },
-      temperature: { min: 25, max: 32 },
-      humidity: { min: 40, max: 70 },
-      light: { min: 10000, max: 20000 },
-    },
-  },
-  drySeason: {
-    label: "Dry Season / Arid",
-    description: "Reduced moisture targets to avoid root rot in high ambient temperatures.",
-    values: {
-      soilMoisture: { min: 15, max: 30 },
-      temperature: { min: 28, max: 36 },
-      humidity: { min: 30, max: 60 },
-      light: { min: 15000, max: 25000 },
-    },
-  },
-  rainySeason: {
-    label: "Rainy / Monsoon",
-    description: "Tolerates higher humidity with alert triggers for soil saturation.",
-    values: {
-      soilMoisture: { min: 25, max: 50 },
-      temperature: { min: 22, max: 29 },
-      humidity: { min: 55, max: 85 },
-      light: { min: 8000, max: 18000 },
-    },
-  },
-  nursery: {
-    label: "Nursery / Seedlings",
-    description: "Gentler lighting and higher humidity for aloe pups and young offsets.",
-    values: {
-      soilMoisture: { min: 30, max: 55 },
-      temperature: { min: 24, max: 30 },
-      humidity: { min: 50, max: 75 },
-      light: { min: 6000, max: 14000 },
-    },
+const BASELINE_PRESET = {
+  label: "Standard Aloe Vera Baseline",
+  description: "Scientifically recommended baseline for mature Aloe Barbadensis Miller. You can fine-tune every individual threshold below.",
+  values: {
+    soilMoisture: { min: 20, max: 40 },
+    temperature: { min: 25, max: 32 },
+    humidity: { min: 40, max: 70 },
+    light: { min: 10000, max: 20000 },
   },
 };
 
 export function SettingsView() {
-  const { role, sensors, plant, setPlant, addActivity, setThresholds, audioAlertsEnabled, setAudioAlertsEnabled, playAlertChime } = useStore();
+  const {
+    role,
+    sensors,
+    plant,
+    setPlant,
+    addActivity,
+    setThresholds,
+    audioAlertsEnabled,
+    setAudioAlertsEnabled,
+    playAlertChime,
+    criticalAlertSettings,
+    setCriticalAlertSettings,
+  } = useStore();
   const isAdmin = role === "admin";
 
+  // Crop timeline state
   const [plantAge, setLocalPlantAge] = useState(plant.age || 180);
   const [harvestAge, setLocalHarvestAge] = useState(plant.harvestAge || 365);
   const [savingPlant, setSavingPlant] = useState(false);
-  const [selectedPreset, setSelectedPreset] = useState("standard");
+
+  // Critical alarm thresholds state
+  const [critSoilMin, setCritSoilMin] = useState(criticalAlertSettings?.minSoilMoisture ?? 10);
+  const [critSoilMax, setCritSoilMax] = useState(criticalAlertSettings?.maxSoilMoisture ?? 65);
+  const [critTempMax, setCritTempMax] = useState(criticalAlertSettings?.maxTemp ?? 38);
+  const [critTempMin, setCritTempMin] = useState(criticalAlertSettings?.minTemp ?? 10);
+  const [savingCritical, setSavingCritical] = useState(false);
 
   useEffect(() => {
     setLocalPlantAge(plant.age);
     setLocalHarvestAge(plant.harvestAge);
   }, [plant.age, plant.harvestAge]);
 
+  useEffect(() => {
+    if (criticalAlertSettings) {
+      setCritSoilMin(criticalAlertSettings.minSoilMoisture);
+      setCritSoilMax(criticalAlertSettings.maxSoilMoisture);
+      setCritTempMax(criticalAlertSettings.maxTemp);
+      setCritTempMin(criticalAlertSettings.minTemp);
+    }
+  }, [criticalAlertSettings]);
+
   const handleUpdate = async (id: string, field: "optimal_min" | "optimal_max", value: number) => {
     try {
+      const current = sensors[id]?.optimal || { min: 0, max: 100 };
+      const nextMin = field === "optimal_min" ? value : current.min;
+      const nextMax = field === "optimal_max" ? value : current.max;
+
+      // Update store and localStorage immediately
+      setThresholds([{ id, optimal_min: nextMin, optimal_max: nextMax }]);
+
+      // Persist to Supabase sensor_settings
       const { error } = await supabase
         .from("sensor_settings")
         .update({ [field]: value, updated_at: new Date().toISOString() })
         .eq("id", id);
 
-      if (error) throw error;
-      addActivity(`Updated ${id} ${field} to ${value}`, "info");
+      if (error) console.warn("Supabase update error (saved in browser cache):", error);
+      addActivity(`Updated ${id} ${field === "optimal_min" ? "minimum" : "maximum"} to ${value}`, "info");
     } catch (err: any) {
       console.error("Failed to update setting", err);
-      addActivity(`Failed to update ${id}: ${err.message}`, "warning");
+      addActivity(`Updated ${id} locally`, "info");
     }
   };
 
-  const handleApplyPreset = async (key: string) => {
+  const handleResetBaseline = async () => {
     if (!isAdmin) return;
-    setSelectedPreset(key);
-    const preset = PRESETS[key];
-    if (!preset) return;
-
     try {
-      const updates = Object.entries(preset.values).map(([id, range]) => ({
+      const updates = Object.entries(BASELINE_PRESET.values).map(([id, range]) => ({
         id,
         optimal_min: range.min,
         optimal_max: range.max,
         updated_at: new Date().toISOString(),
       }));
 
+      // Update local storage and Zustand store
+      setThresholds(updates);
+
+      // Update Supabase records
       for (const u of updates) {
-        await supabase.from("sensor_settings").upsert(u);
+        await supabase
+          .from("sensor_settings")
+          .update({ optimal_min: u.optimal_min, optimal_max: u.optimal_max, updated_at: u.updated_at })
+          .eq("id", u.id);
       }
 
-      setThresholds(updates);
-      addActivity(`Applied threshold preset: ${preset.label}`, "info");
+      addActivity("Restored baseline Aloe Vera sensor thresholds", "ok");
     } catch (e: any) {
-      alert(`Could not apply preset: ${e?.message}`);
+      console.warn("Could not sync preset to DB (cached locally):", e?.message);
     }
   };
 
@@ -105,26 +111,51 @@ export function SettingsView() {
     e.preventDefault();
     setSavingPlant(true);
     try {
+      // 1. Immediately store in Zustand store and localStorage
       setPlant({ age: plantAge, harvestAge });
-      const { error } = await supabase.from("plant_info").upsert([
-        {
-          id: 1,
+
+      // 2. Persist to database using .update().eq("id", 1) to respect RLS
+      const { error } = await supabase
+        .from("plant_info")
+        .update({
           age: plantAge,
           harvest_age: harvestAge,
-        },
-      ]);
-      if (error) throw error;
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", 1);
+
+      if (error) {
+        console.warn("Supabase plant_info update notice:", error.message);
+      }
       addActivity(`Updated crop timeline: ${plantAge} days / ${harvestAge} days target`, "ok");
     } catch (err: any) {
       console.warn("Failed to persist plant_info to DB:", err?.message);
-      addActivity("Updated local crop settings", "info");
+      addActivity(`Updated crop timeline locally: ${plantAge}d / ${harvestAge}d`, "info");
     } finally {
       setSavingPlant(false);
     }
   };
 
+  const handleSaveCritical = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingCritical(true);
+    const updated = {
+      minSoilMoisture: Number(critSoilMin),
+      maxSoilMoisture: Number(critSoilMax),
+      maxTemp: Number(critTempMax),
+      minTemp: Number(critTempMin),
+    };
+    setCriticalAlertSettings(updated);
+    addActivity(
+      `Updated critical hazard thresholds: Moisture <${updated.minSoilMoisture}%, >${updated.maxSoilMoisture}%, Temp >${updated.maxTemp}°C, <${updated.minTemp}°C`,
+      "warning"
+    );
+    setTimeout(() => setSavingCritical(false), 400);
+  };
+
   return (
     <section className="p-8 space-y-6">
+      {/* SECTION 1: Sensor Operating Thresholds */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -136,36 +167,33 @@ export function SettingsView() {
             </p>
           </div>
           {isAdmin && (
-            <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full shrink-0">
-              <i className="fa-solid fa-pen-to-square mr-1"></i> Edit Mode Active
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleResetBaseline}
+                className="text-xs font-semibold px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition cursor-pointer flex items-center gap-1.5"
+                title="Reset all thresholds back to standard Aloe Vera defaults"
+              >
+                <i className="fa-solid fa-rotate-left text-[11px]"></i> Reset Standard Baseline
+              </button>
+              <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full shrink-0">
+                <i className="fa-solid fa-pen-to-square mr-1"></i> Edit Mode Active
+              </span>
+            </div>
           )}
         </div>
 
-        {isAdmin && (
-          <div className="px-6 py-4 bg-slate-50 border-b border-slate-100">
-            <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-              Quick Season & Cultivation Presets
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {Object.entries(PRESETS).map(([k, p]) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => handleApplyPreset(k)}
-                  className={`p-3 rounded-xl border text-left transition ${
-                    selectedPreset === k
-                      ? "bg-agri-50 border-agri-500 ring-2 ring-agri-500/20"
-                      : "bg-white border-slate-200 hover:border-agri-300"
-                  }`}
-                >
-                  <p className="text-xs font-bold text-slate-900">{p.label}</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{p.description}</p>
-                </button>
-              ))}
-            </div>
+        {/* Standard Preset Indicator */}
+        <div className="px-6 py-3.5 bg-agri-50/60 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2 h-2 rounded-full bg-agri-600"></span>
+            <p className="text-xs font-bold text-agri-900">{BASELINE_PRESET.label}</p>
+            <span className="text-[11px] text-slate-600 hidden sm:inline">— {BASELINE_PRESET.description}</span>
           </div>
-        )}
+          <span className="text-[11px] font-medium text-agri-700 bg-white border border-agri-200 px-2.5 py-0.5 rounded-lg shrink-0 self-start sm:self-auto">
+            Editable Values
+          </span>
+        </div>
 
         <div className="px-6 py-3 divide-y divide-slate-100">
           {Object.values(sensors).map((s) => (
@@ -174,10 +202,16 @@ export function SettingsView() {
         </div>
       </div>
 
+      {/* SECTION 2: Crop Cultivation Timeline */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-        <h3 className="text-base font-bold text-slate-900 mb-1">Crop Cultivation Timeline</h3>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-base font-bold text-slate-900">Crop Cultivation Timeline</h3>
+          <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+            Persistent & Editable
+          </span>
+        </div>
         <p className="text-xs text-slate-500 mb-5">
-          Configure crop growth duration and projected harvest readiness milestones.
+          Configure current crop growth duration and projected harvest readiness milestones. Persisted locally and synced to the database.
         </p>
 
         <form onSubmit={handleSavePlant} className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
@@ -188,7 +222,7 @@ export function SettingsView() {
             <input
               type="number"
               min="0"
-              max="1000"
+              max="1500"
               value={plantAge}
               onChange={(e) => setLocalPlantAge(Number(e.target.value))}
               disabled={!isAdmin}
@@ -203,7 +237,7 @@ export function SettingsView() {
             <input
               type="number"
               min="1"
-              max="1500"
+              max="2000"
               value={harvestAge}
               onChange={(e) => setLocalHarvestAge(Number(e.target.value))}
               disabled={!isAdmin}
@@ -215,29 +249,157 @@ export function SettingsView() {
             <button
               type="submit"
               disabled={savingPlant}
-              className="px-5 py-2.5 bg-agri-600 hover:bg-agri-700 disabled:opacity-60 text-white rounded-xl text-sm font-semibold shadow-sm transition"
+              className="px-5 py-2.5 bg-agri-600 hover:bg-agri-700 disabled:opacity-60 text-white rounded-xl text-sm font-semibold shadow-sm transition cursor-pointer"
             >
-              {savingPlant ? "Saving…" : "Update Timeline"}
+              {savingPlant ? "Saving…" : "Save Cultivation Timeline"}
             </button>
           )}
         </form>
       </div>
 
+      {/* SECTION 3: Critical Hazard Alarm Thresholds */}
+      <div className="bg-white rounded-2xl border border-rose-200 shadow-sm p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+              <i className="fa-solid fa-triangle-exclamation text-sm"></i>
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Critical Hazard Alarm Limits</h3>
+              <p className="text-xs text-slate-500">
+                Trigger dual-tone emergency siren alerts when conditions reach hazardous plant thresholds.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => playAlertChime("critical")}
+            className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+          >
+            <i className="fa-solid fa-volume-high text-xs"></i> Test Urgent Siren Tone
+          </button>
+        </div>
+
+        <form onSubmit={handleSaveCritical} className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+              Dehydration Hazard
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-rose-600 font-bold">&lt;</span>
+              <input
+                type="number"
+                min="1"
+                max="30"
+                value={critSoilMin}
+                onChange={(e) => setCritSoilMin(Number(e.target.value))}
+                disabled={!isAdmin}
+                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500/30"
+              />
+              <span className="text-xs text-slate-500 font-mono">%</span>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1">Severe drought & leaf shrinkage</p>
+          </div>
+
+          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+              Root Rot Hazard
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-rose-600 font-bold">&gt;</span>
+              <input
+                type="number"
+                min="45"
+                max="90"
+                value={critSoilMax}
+                onChange={(e) => setCritSoilMax(Number(e.target.value))}
+                disabled={!isAdmin}
+                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500/30"
+              />
+              <span className="text-xs text-slate-500 font-mono">%</span>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1">Over-saturation / fungal rot</p>
+          </div>
+
+          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+              Extreme Heat Stress
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-rose-600 font-bold">&gt;</span>
+              <input
+                type="number"
+                min="30"
+                max="50"
+                value={critTempMax}
+                onChange={(e) => setCritTempMax(Number(e.target.value))}
+                disabled={!isAdmin}
+                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500/30"
+              />
+              <span className="text-xs text-slate-500 font-mono">°C</span>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1">Cell wall collapse & scorched tips</p>
+          </div>
+
+          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+              Cold Damage Limit
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-rose-600 font-bold">&lt;</span>
+              <input
+                type="number"
+                min="0"
+                max="20"
+                value={critTempMin}
+                onChange={(e) => setCritTempMin(Number(e.target.value))}
+                disabled={!isAdmin}
+                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500/30"
+              />
+              <span className="text-xs text-slate-500 font-mono">°C</span>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1">Freezing injury to gel core</p>
+          </div>
+
+          {isAdmin && (
+            <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
+              <button
+                type="submit"
+                disabled={savingCritical}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white rounded-xl text-xs font-semibold shadow-sm transition cursor-pointer flex items-center gap-2"
+              >
+                <i className="fa-solid fa-floppy-disk text-xs"></i>
+                {savingCritical ? "Saving Limits…" : "Save Critical Hazard Settings"}
+              </button>
+            </div>
+          )}
+        </form>
+      </div>
+
+      {/* SECTION 4: Audio Notification Master Switch */}
       <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-card">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3.5">
-            <div className={`w-11 h-11 rounded-2xl ${audioAlertsEnabled ? "bg-amber-100 text-amber-600" : "bg-slate-100 text-slate-400"} flex items-center justify-center shrink-0`}>
+            <div
+              className={`w-11 h-11 rounded-2xl ${
+                audioAlertsEnabled ? "bg-amber-100 text-amber-600" : "bg-slate-100 text-slate-400"
+              } flex items-center justify-center shrink-0`}
+            >
               <i className={`fa-solid ${audioAlertsEnabled ? "fa-bell text-lg" : "fa-bell-slash text-lg"}`}></i>
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-slate-900">Audio Chime & Warning Notifications</h3>
-                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${audioAlertsEnabled ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                <span
+                  className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                    audioAlertsEnabled ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"
+                  }`}
+                >
                   {audioAlertsEnabled ? "Active" : "Muted"}
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-1 max-w-xl leading-relaxed">
-                Synthesizes instant browser warning chimes when aloe vera parameters reach hazard levels (Moisture &lt; 10% severe dehydration, &gt; 65% root rot danger, Temperature &gt; 38°C extreme heat).
+                Synthesizes browser warning chimes and urgency sirens when aloe vera parameters exceed safe or critical hazard thresholds.
               </p>
             </div>
           </div>
@@ -255,7 +417,7 @@ export function SettingsView() {
               onClick={() => playAlertChime("critical")}
               className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
             >
-              <i className="fa-solid fa-triangle-exclamation text-xs"></i> Test Critical Alert
+              <i className="fa-solid fa-triangle-exclamation text-xs"></i> Test Critical Siren
             </button>
             <button
               type="button"

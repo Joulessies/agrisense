@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
       model: { filename: 'lstm_crop_predictor.py', mime: 'text/x-python' },
       notebook: { filename: 'lstm_crop_predictor.ipynb', mime: 'application/x-ipynb+json' },
       report: { filename: 'model_evaluation_report.md', mime: 'text/markdown' },
+      pdf: { filename: 'AgriSense_BiLSTM_Model_Paper.pdf', mime: 'application/pdf' },
     };
 
     const target = fileMap[download];

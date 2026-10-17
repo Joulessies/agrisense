@@ -258,7 +258,7 @@ export function PredictionsView() {
             </div>
           </div>
           <p className="text-xs text-slate-500 max-w-2xl leading-relaxed">
-            Correlates 7-day high-resolution meteorological forecasts with multi-day sensor telemetry to project soil moisture trajectories, leaf symptoms, and stress levels.
+            Pinagsasama ang 7-araw na taya ng panahon at datos ng mga sensor upang subaybayan ang kalusugan ng Aloe Vera, pagkatuyo ng lupa, at tamang oras ng pagdilig.
           </p>
         </div>
 
@@ -286,11 +286,11 @@ export function PredictionsView() {
             type="button"
             onClick={handleGpsLocation}
             disabled={isDetectingLocation}
-            title="Use current device GPS location"
+            title="Gamitin ang kasalukuyang GPS location ng device"
             className="px-3 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5 text-xs font-medium cursor-pointer"
           >
             <i className={`fa-solid fa-location-crosshairs text-xs text-emerald-600 ${isDetectingLocation ? "animate-spin" : ""}`}></i>
-            <span className="hidden sm:inline">{isDetectingLocation ? "Locating…" : "GPS"}</span>
+            <span className="hidden sm:inline">{isDetectingLocation ? "Naghahanap…" : "GPS"}</span>
           </button>
         </div>
       </div>
@@ -308,7 +308,7 @@ export function PredictionsView() {
             }`}
           >
             <i className="fa-solid fa-calendar-week text-xs"></i>
-            <span>7-Day Microclimate Timeline</span>
+            <span>📅 7-Day Microclimate Timeline</span>
           </button>
           <button
             type="button"
@@ -320,7 +320,7 @@ export function PredictionsView() {
             }`}
           >
             <i className="fa-solid fa-brain text-xs"></i>
-            <span>Bi-LSTM Neural Engine Hub</span>
+            <span>🧠 Bi-LSTM Neural Engine Hub</span>
             <span
               className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
                 viewMode === "lstm" ? "bg-white/20 text-white" : "bg-indigo-50 text-indigo-700 border border-indigo-200"
@@ -476,7 +476,17 @@ export function PredictionsView() {
               7-Day Microclimate & Plant State Timeline
             </h3>
             <span className="text-xs text-slate-500 font-medium">
-              Click any day to inspect predicted leaf symptoms
+              Pindutin ang kahit aling araw para makita ang pagsusuri sa dahon
+            </span>
+          </div>
+
+          <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-emerald-950 shadow-2xs">
+            <div className="flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0">👉</span>
+              <span><strong>Gabay sa 7 Araw:</strong> Pindutin ang kahit aling araw sa ibaba (Day 1 hanggang 7) upang makita ang taya ng panahon, kalusugan ng dahon, at payo sa pagdilig.</span>
+            </div>
+            <span className="text-[11px] font-bold bg-white px-2.5 py-1 rounded-md border border-emerald-300 text-emerald-800 shrink-0 self-start sm:self-auto">
+              Naka-display: Day {selectedDayIdx + 1} ({selectedDayIdx === 0 ? "Ngayon" : selectedDayIdx === 1 ? "Bukas" : `Day ${selectedDayIdx + 1}`})
             </span>
           </div>
 
@@ -484,7 +494,7 @@ export function PredictionsView() {
             {prediction.dailyForecastTimeline.map((d, idx) => {
               const isSelected = selectedDayIdx === idx;
               const dateObj = new Date(d.date + "T12:00:00");
-              const dayName = idx === 0 ? "Today" : dateObj.toLocaleDateString("en-US", { weekday: "short" });
+              const dayName = idx === 0 ? "Ngayon" : idx === 1 ? "Bukas" : dateObj.toLocaleDateString("en-US", { weekday: "short" });
               const dateFormatted = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
               const badgeColors = {
@@ -516,7 +526,9 @@ export function PredictionsView() {
 
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className={`font-bold text-xs ${isSelected ? "text-emerald-700 font-extrabold" : "text-slate-900"}`}>{dayName}</span>
+                      <span className={`font-black text-xs ${isSelected ? "text-emerald-700" : "text-slate-900"}`}>
+                        Day {idx + 1} <span className="font-normal text-[10px] text-slate-500">({dayName})</span>
+                      </span>
                       <span className="text-[10px] text-slate-400 font-medium">{dateFormatted}</span>
                     </div>
 
@@ -544,7 +556,7 @@ export function PredictionsView() {
                     </div>
 
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-400">Unwatered:</span>
+                      <span className="text-slate-400">Walang Dilig:</span>
                       <strong className="text-slate-700 font-semibold">{d.daysWithoutWater}d</strong>
                     </div>
 
@@ -552,9 +564,13 @@ export function PredictionsView() {
                       {d.stressLevel.replace("_", " ")}
                     </span>
 
-                    {isSelected && (
-                      <span className="block text-[9px] font-black uppercase tracking-wider text-center text-emerald-700 bg-emerald-50 rounded py-0.5 border border-emerald-200 mt-1">
-                        ● Inspecting
+                    {isSelected ? (
+                      <span className="block text-[9px] font-black uppercase tracking-wider text-center text-emerald-800 bg-emerald-100/90 rounded py-0.5 border border-emerald-300 mt-1 shadow-xs">
+                        ✓ Tinitingnan Ngayon
+                      </span>
+                    ) : (
+                      <span className="block text-[9px] font-medium text-center text-slate-500 group-hover:text-slate-700 bg-slate-50 rounded py-0.5 mt-1 border border-transparent">
+                        Pindutin para makita
                       </span>
                     )}
                   </div>
@@ -564,39 +580,54 @@ export function PredictionsView() {
           </div>
 
           {selectedDay && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-3 animate-in fade-in duration-200">
-              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm lg:col-span-2 space-y-5">
-                <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
+            <div id="day-inspection-panel" className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-3 animate-in fade-in duration-200">
+              <div className="bg-white rounded-2xl p-6 border-2 border-emerald-500/40 shadow-sm lg:col-span-2 space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                      Day {selectedDay.dayIndex + 1} Selected Inspection
-                    </span>
-                    <h3 className="text-base font-bold text-slate-900 mt-1">
-                      Day {selectedDay.dayIndex + 1} — {new Date(selectedDay.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 bg-emerald-100/80 px-2.5 py-0.5 rounded-md border border-emerald-300">
+                        Naka-select: Day {selectedDay.dayIndex + 1} sa 7 Araw
+                      </span>
+                      {selectedDay.dayIndex === 0 ? (
+                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                          Kasalukuyang Araw (Ngayon)
+                        </span>
+                      ) : selectedDay.dayIndex === 1 ? (
+                        <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
+                          Bukas
+                        </span>
+                      ) : null}
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900 mt-1 flex items-center gap-2">
+                      <span>Day {selectedDay.dayIndex + 1} — {new Date(selectedDay.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</span>
                     </h3>
                   </div>
-                  <div className="text-right">
-                    <span className="text-[11px] font-semibold text-slate-400 block">Projected Vitality</span>
+                  <div className="text-left sm:text-right bg-emerald-50 sm:bg-transparent p-2.5 sm:p-0 rounded-xl border sm:border-0 border-emerald-100">
+                    <span className="text-[11px] font-semibold text-slate-500 block">Tinatayang Lusog (Vitality)</span>
                     <span className="text-2xl font-black text-emerald-600">{selectedDay.vitalityScore}%</span>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="bg-slate-50/80 rounded-xl p-3.5 text-center border border-slate-100">
-                    <p className="text-[10px] text-slate-400 uppercase font-semibold">Soil Moisture</p>
+                    <p className="text-[10px] text-slate-400 uppercase font-semibold">Tubig sa Lupa (Moisture)</p>
                     <p className="text-lg font-black text-slate-800 mt-0.5">{selectedDay.simulatedSoilMoisture}%</p>
+                    <span className="text-[10px] text-slate-500">{selectedDay.simulatedSoilMoisture < 18 ? "⚠️ Tuyot na ang lupa" : "✓ Sapat ang basa"}</span>
                   </div>
                   <div className="bg-slate-50/80 rounded-xl p-3.5 text-center border border-slate-100">
-                    <p className="text-[10px] text-slate-400 uppercase font-semibold">Drought Days</p>
-                    <p className="text-lg font-black text-slate-800 mt-0.5">{selectedDay.daysWithoutWater}d</p>
+                    <p className="text-[10px] text-slate-400 uppercase font-semibold">Hindi Nadidiligan</p>
+                    <p className="text-lg font-black text-slate-800 mt-0.5">{selectedDay.daysWithoutWater} araw</p>
+                    <span className="text-[10px] text-slate-500">{selectedDay.daysWithoutWater >= 8 ? "⚠️ Kailangan nang diligan" : "✓ Ligtas pa ang halaman"}</span>
                   </div>
                   <div className="bg-slate-50/80 rounded-xl p-3.5 text-center border border-slate-100">
-                    <p className="text-[10px] text-slate-400 uppercase font-semibold">Day High Temp</p>
+                    <p className="text-[10px] text-slate-400 uppercase font-semibold">Tinatayang Init</p>
                     <p className="text-lg font-black text-amber-600 mt-0.5">{selectedDay.simulatedTempMax}°C</p>
+                    <span className="text-[10px] text-slate-500">{selectedDay.simulatedTempMax >= 33 ? "☀️ Mainit sa tanghali" : "⛅ Kaaya-aya"}</span>
                   </div>
                   <div className="bg-slate-50/80 rounded-xl p-3.5 text-center border border-slate-100">
-                    <p className="text-[10px] text-slate-400 uppercase font-semibold">Rain Volume</p>
+                    <p className="text-[10px] text-slate-400 uppercase font-semibold">Dami ng Ulan</p>
                     <p className="text-lg font-black text-sky-600 mt-0.5">{selectedDay.weather.rainMm} mm</p>
+                    <span className="text-[10px] text-slate-500">{selectedDay.weather.rainMm > 0 ? "🌧️ May ulan" : "Walang ulan"}</span>
                   </div>
                 </div>
 
@@ -605,7 +636,7 @@ export function PredictionsView() {
                     <div className="flex items-center gap-2">
                       <i className="fa-solid fa-triangle-exclamation text-amber-600 text-sm"></i>
                       <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wide">
-                        Predicted State: {selectedDay.primaryCondition}
+                        Day {selectedDay.dayIndex + 1} Status: {selectedDay.primaryCondition}
                       </h4>
                     </div>
                     {selectedDay.alerts.map((alert, aIdx) => (
@@ -619,11 +650,11 @@ export function PredictionsView() {
                     <div className="flex items-center gap-2">
                       <i className="fa-solid fa-circle-check text-emerald-600 text-sm"></i>
                       <h4 className="text-xs font-bold text-emerald-950 uppercase tracking-wide">
-                        Predicted State: {selectedDay.primaryCondition}
+                        Day {selectedDay.dayIndex + 1} Status: {selectedDay.primaryCondition}
                       </h4>
                     </div>
                     <p className="text-xs text-emerald-800 leading-relaxed pl-5">
-                      • Environmental vital signs remain optimal and within physiological safety thresholds.
+                      • Ligtas at normal ang lahat ng vital signs ng Aloe Vera sa araw na ito.
                     </p>
                   </div>
                 )}
@@ -631,27 +662,27 @@ export function PredictionsView() {
                 <div>
                   <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
                     <i className="fa-solid fa-leaf text-emerald-600 text-xs"></i>
-                    Physical Leaf Characteristics & Symptom Diagnosis
+                    Pisikal na Hitsura ng Dahon ng Aloe Vera (Day {selectedDay.dayIndex + 1})
                   </h4>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
                     <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/60">
-                      <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Thickness</span>
+                      <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Kapal ng Laman (Thickness)</span>
                       <span className="font-bold text-slate-800 text-xs mt-0.5 block">{selectedDay.leafSymptom.thickness}</span>
                     </div>
                     <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/60">
-                      <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Texture</span>
+                      <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Haplos (Texture)</span>
                       <span className="font-bold text-slate-800 text-xs mt-0.5 block">{selectedDay.leafSymptom.texture}</span>
                     </div>
                     <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/60">
-                      <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Coloring</span>
+                      <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Kulay ng Dahon (Coloring)</span>
                       <span className="font-bold text-slate-800 text-xs mt-0.5 block">{selectedDay.leafSymptom.color}</span>
                     </div>
                     <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/60">
-                      <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Posture</span>
+                      <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Posisyon / Tayo (Posture)</span>
                       <span className="font-bold text-slate-800 text-xs mt-0.5 block">{selectedDay.leafSymptom.posture}</span>
                     </div>
                     <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/60 sm:col-span-2">
-                      <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Root Health & Substrate State</span>
+                      <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Lagay ng Ugat at Lupa (Roots & Soil)</span>
                       <span className="font-bold text-slate-800 text-xs mt-0.5 block">{selectedDay.leafSymptom.roots}</span>
                     </div>
                   </div>
@@ -666,56 +697,89 @@ export function PredictionsView() {
                         <i className="fa-solid fa-clipboard-check text-sm"></i>
                       </span>
                       <div>
-                        <h4 className="text-sm font-bold text-white">Recommended Actions</h4>
-                        <p className="text-[10px] text-slate-400">Rules-based irrigation protocol</p>
+                        <h4 className="text-sm font-bold text-white">📋 Gabay sa Aksyon sa Day {selectedDay.dayIndex + 1}</h4>
+                        <p className="text-[10px] text-slate-400">Araw-araw na Custom Plan para sa Halaman</p>
                       </div>
                     </div>
 
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-emerald-300 border border-white/10">
-                      {prediction?.daysUntilWaterRequired === 0 ? "Due Today" : `In ${prediction?.daysUntilWaterRequired}d`}
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700/60">
+                      Day {selectedDay.dayIndex + 1} sa 7 Araw
                     </span>
+                  </div>
+
+                  {/* Day-specific custom forecast action */}
+                  <div className="bg-white/10 rounded-xl p-4 border border-white/15 space-y-2">
+                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                      <i className="fa-solid fa-bell text-[10px]"></i>
+                      {selectedDay.weather.rainMm >= 2
+                        ? "🌧️ Natural na Ulan (Huwag Diligan)"
+                        : selectedDay.simulatedSoilMoisture < 18 || selectedDay.daysWithoutWater >= 8
+                        ? "💧 Oras Nang Diligan (Watering Due)"
+                        : selectedDay.simulatedTempMax >= 34
+                        ? "☀️ Proteksyon sa Tanghaling Init"
+                        : "🌱 Normal at Maayos na Pag-aalaga"}
+                    </span>
+                    <p className="text-xs font-bold text-white">
+                      {selectedDay.weather.rainMm >= 2
+                        ? `May ulan sa Day ${selectedDay.dayIndex + 1} (${selectedDay.weather.rainMm} mm)`
+                        : selectedDay.simulatedSoilMoisture < 18 || selectedDay.daysWithoutWater >= 8
+                        ? `Tuyo na ang lupa sa Day ${selectedDay.dayIndex + 1} (${selectedDay.simulatedSoilMoisture}%)`
+                        : selectedDay.simulatedTempMax >= 34
+                        ? `Mataas ang init sa araw na ito (${selectedDay.simulatedTempMax}°C)`
+                        : `Normal na Alaga: Matatag ang vital signs sa ${selectedDay.vitalityScore}% vitality`}
+                    </p>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      {selectedDay.weather.rainMm >= 2
+                        ? "Ang ulan ang kusang magbabasa sa ugat. Huwag diligan nang manu-mano upang maiwasan ang pagkaagnas ng ugat (root rot)."
+                        : selectedDay.simulatedSoilMoisture < 18 || selectedDay.daysWithoutWater >= 8
+                        ? `Umabot na sa ${selectedDay.daysWithoutWater} araw na walang tubig. Diligan nang katamtaman sa ganap na 8:00 AM bago tumirik ang araw.`
+                        : selectedDay.simulatedTempMax >= 34
+                        ? "Lagyan ng shade net sa pagitan ng 11:00 AM at 2:00 PM upang maiwasan ang sunburn at pamumula ng dulo ng dahon."
+                        : "Sapat ang basâ ng lupa at nasa normal na temperatura. Hindi kinakailangan ng agarang aksyon sa araw na ito."}
+                    </p>
                   </div>
 
                   <div className="bg-white/5 rounded-xl p-3.5 border border-white/10 flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase font-semibold">Irrigation Interval</span>
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold">Panahon sa Pilipinas</span>
                       <p className="text-xs font-bold text-white mt-0.5">
-                        {prediction?.seasonType === "dry_season" ? "Dry Season (7–10 days)" : "Rainy Season (14–21 days)"}
+                        {prediction?.seasonType === "dry_season" ? "Tag-init (Kada 7–10 araw)" : "Tag-ulan (Kada 14–21 araw)"}
                       </p>
                     </div>
                     <div className="text-right">
-                      <span className="text-[10px] text-slate-400 uppercase font-semibold">Next Watering Due</span>
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold">Inirerekomendang Dilig</span>
                       <p className="text-xs font-black text-emerald-400 mt-0.5">
                         {prediction?.nextRecommendedWateringDate}
                       </p>
                     </div>
                   </div>
 
-                  <div className="space-y-2.5">
-                    {prediction?.actionPlan.map((act, i) => (
-                      <div key={i} className="bg-white/10 rounded-xl p-3.5 border border-white/10 space-y-1">
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1">
-                          <i className="fa-solid fa-circle-arrow-right text-[8px]"></i>
+                  <div className="space-y-2">
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                      Kabuuang Plano para sa Taniman:
+                    </p>
+                    {prediction?.actionPlan.slice(0, 2).map((act, i) => (
+                      <div key={i} className="bg-white/5 rounded-xl p-3 border border-white/10 space-y-0.5">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-400">
                           {act.priority} priority
                         </span>
-                        <p className="text-xs font-bold text-white">{act.action}</p>
-                        <p className="text-[11px] text-slate-300 leading-relaxed">{act.reason}</p>
+                        <p className="text-xs font-semibold text-white">{act.action}</p>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-white/10 space-y-2.5">
+                <div className="pt-4 border-t border-white/10 space-y-2">
                   <button
                     type="button"
                     onClick={() => recordWatering()}
                     className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
                   >
                     <i className="fa-solid fa-droplet text-xs"></i>
-                    I Have Watered The Aloe Vera (Reset)
+                    💧 Nadiligan Na Ngayong Araw (I-reset sa Day 0)
                   </button>
                   <p className="text-[10px] text-slate-400 text-center">
-                    Updates moisture reading and resets drought tracking to Day 0
+                    I-re-reset nito ang bilang ng araw na walang tubig pabalik sa 0 araw
                   </p>
                 </div>
               </div>

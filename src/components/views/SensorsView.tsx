@@ -331,11 +331,35 @@ export function SensorsView() {
       const { data } = await supabase.from("nodes").select("*").order("id");
       if (data) useStore.getState().setNodes(data);
     } else if (actionType === "delete") {
-      if (!confirm(`Delete node "${id}"?`)) return;
-      await supabase.from("nodes").delete().eq("id", id);
-      addActivity(`Deleted node: ${id}`, "warning");
-      const { data } = await supabase.from("nodes").select("*").order("id");
-      if (data) useStore.getState().setNodes(data);
+      if (!confirm(`Are you sure you want to delete node "${id}"?`)) return;
+      
+      const currentNodes = useStore.getState().nodes;
+      // Optimistic update
+      useStore.getState().setNodes(currentNodes.filter((n) => n.id !== id));
+
+      try {
+        const res = await fetch("/api/nodes", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to delete node in database");
+        }
+
+        addActivity(`Deleted node: ${id}`, "warning");
+
+        const refreshRes = await fetch("/api/nodes");
+        if (refreshRes.ok) {
+          const json = await refreshRes.json();
+          if (json.nodes) useStore.getState().setNodes(json.nodes);
+        }
+      } catch (err: any) {
+        alert(`Could not delete node: ${err.message}`);
+        useStore.getState().setNodes(currentNodes);
+      }
     }
   };
 
@@ -345,7 +369,7 @@ export function SensorsView() {
     setLoading(true);
 
     try {
-      const newNode: NodeItem = {
+      const newNode = {
         id: nodeId.trim(),
         zone,
         type: nodeType,
@@ -354,12 +378,24 @@ export function SensorsView() {
         online: true,
       };
 
-      const { error } = await supabase.from("nodes").upsert([newNode]);
-      if (error) throw error;
+      const res = await fetch("/api/nodes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newNode),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Failed to add node");
+      }
 
       addActivity(`Registered hardware node: ${nodeId.trim()}`, "info");
-      const { data } = await supabase.from("nodes").select("*").order("id");
-      if (data) useStore.getState().setNodes(data);
+
+      const refreshRes = await fetch("/api/nodes");
+      if (refreshRes.ok) {
+        const json = await refreshRes.json();
+        if (json.nodes) useStore.getState().setNodes(json.nodes);
+      }
 
       setIsNodeModalOpen(false);
       setNodeId("");
@@ -474,14 +510,12 @@ export function SensorsView() {
             >
               <i className={`fa-solid fa-vial ${simulating ? "fa-spin text-agri-600" : ""}`}></i> Simulate Reading
             </button>
-            {role === "admin" && (
-              <button
-                onClick={() => setIsNodeModalOpen(true)}
-                className="text-xs bg-agri-600 hover:bg-agri-700 text-white font-semibold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm"
-              >
-                <i className="fa-solid fa-plus text-xs"></i> Add Node
-              </button>
-            )}
+            <button
+              onClick={() => setIsNodeModalOpen(true)}
+              className="text-xs bg-agri-600 hover:bg-agri-700 text-white font-semibold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+            >
+              <i className="fa-solid fa-plus text-xs"></i> Add Node
+            </button>
           </div>
         </div>
 
@@ -553,25 +587,21 @@ export function SensorsView() {
                           <i className="fa-solid fa-satellite-dish text-[10px] text-sky-500"></i>
                           <span>{pingLatencies[n.id] ? `${pingLatencies[n.id]}ms` : "Ping"}</span>
                         </button>
-                        {role === "admin" && (
-                          <>
-                            <button
-                              onClick={() => handleAction("restart", n.id)}
-                              className="text-xs text-slate-600 hover:text-slate-800 font-semibold px-2 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 transition flex items-center gap-1"
-                              title="Soft restart IoT controller"
-                            >
-                              <i className="fa-solid fa-arrows-rotate text-[10px] text-amber-500"></i>
-                              <span>Restart</span>
-                            </button>
-                            <button
-                              onClick={() => handleAction("delete", n.id)}
-                              className="text-xs text-rose-600 hover:text-rose-800 font-semibold px-2 py-1 rounded-lg hover:bg-rose-50 transition"
-                              title="Remove node"
-                            >
-                              <i className="fa-solid fa-trash-can"></i>
-                            </button>
-                          </>
-                        )}
+                        <button
+                          onClick={() => handleAction("restart", n.id)}
+                          className="text-xs text-slate-600 hover:text-slate-800 font-semibold px-2 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 transition flex items-center gap-1 cursor-pointer"
+                          title="Soft restart IoT controller"
+                        >
+                          <i className="fa-solid fa-arrows-rotate text-[10px] text-amber-500"></i>
+                          <span>Restart</span>
+                        </button>
+                        <button
+                          onClick={() => handleAction("delete", n.id)}
+                          className="text-xs text-rose-600 hover:text-rose-800 font-semibold px-2 py-1 rounded-lg hover:bg-rose-50 transition cursor-pointer"
+                          title="Burahin ang node na ito"
+                        >
+                          <i className="fa-solid fa-trash-can"></i>
+                        </button>
                       </td>
                     </tr>
                   );

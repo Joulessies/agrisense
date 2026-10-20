@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useStore } from "@/store/useStore";
-import { getStatus, formatNumber } from "@/lib/utils";
+import { getStatus, formatNumber, getTimeOfDayPST } from "@/lib/utils";
 
 import { supabase } from "@/lib/supabase";
 
@@ -23,6 +23,7 @@ const TONE_CLASSES = {
 
 export function AlertsView() {
   const { sensors, dismissedAlerts, dismissAlert, addActivity, updateSensor, recordWatering } = useStore();
+  const { isNight } = getTimeOfDayPST();
 
   const liveAlerts = Object.values(sensors).reduce((acc: any[], s) => {
     const st = getStatus(s);
@@ -80,11 +81,15 @@ export function AlertsView() {
       <section className="p-8">
         <div className="bg-white rounded-xl border border-slate-200 shadow-card p-10 text-center">
           <div className="w-14 h-14 rounded-2xl bg-agri-50 mx-auto flex items-center justify-center mb-4">
-            <i className="fa-solid fa-circle-check text-agri-600 text-xl"></i>
+            <i className={`fa-solid ${isNight ? "fa-moon text-indigo-600" : "fa-circle-check text-agri-600"} text-xl`}></i>
           </div>
-          <h3 className="text-lg font-semibold text-slate-900">No active alerts</h3>
+          <h3 className="text-lg font-semibold text-slate-900">
+            {isNight ? "Nighttime Resting Mode — No Active Alerts" : "No active alerts"}
+          </h3>
           <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
-            All sensor readings are within optimal range. You're good to go!
+            {isNight
+              ? "Darkness is expected for nocturnal CAM respiration in the Philippines. Soil moisture, temperature, and humidity remain continuously safeguarded."
+              : "All sensor readings are within optimal range. You're good to go!"}
           </p>
         </div>
       </section>

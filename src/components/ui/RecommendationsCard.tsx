@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useStore } from "@/store/useStore";
-import { getStatus, formatNumber } from "@/lib/utils";
+import { getStatus, formatNumber, getTimeOfDayPST } from "@/lib/utils";
 
 import { supabase } from "@/lib/supabase";
 
@@ -22,8 +22,26 @@ export function RecommendationsCard() {
   };
 
   const buildRecommendations = () => {
+    const { isNight, isDusk } = getTimeOfDayPST();
     const recs: any[] = [];
+
     Object.values(sensors).forEach((s) => {
+      // Adaptive light handling for night / dusk
+      if (s.id === "light" && (isNight || isDusk)) {
+        // Darkness is expected for Aloe CAM physiology at night.
+        // Only warn if unnatural high light (>2000 lux) is disrupting nocturnal stomatal respiration.
+        if (s.value > 2000) {
+          recs.push({
+            sensorId: s.id,
+            text: "Excess light at night — may disrupt CAM respiration.",
+            detail: "Aloe Vera stomata open during darkness to capture CO2. Turn off greenhouse lights.",
+            icon: "fa-moon",
+            action: { id: "btnLightsOff", label: "Turn off grow lights", icon: "fa-power-off" },
+          });
+        }
+        return;
+      }
+
       const status = getStatus(s);
       if (status === "ok") return;
 
@@ -31,10 +49,12 @@ export function RecommendationsCard() {
       const map: Record<string, any> = {
         soilMoisture: isLow
           ? {
-              title: "Water the plant now",
-              detail: `Add ~1.5 L/m² before noon to reach ${s.optimal.min + 5}% moisture.`,
+              title: isNight ? "Schedule morning watering" : "Water the plant now",
+              detail: isNight
+                ? `Soil moisture is low (${s.value}%). Irrigate in early morning to avoid nocturnal root fungal dampening.`
+                : `Add ~1.5 L/m² before noon to reach ${s.optimal.min + 5}% moisture.`,
               icon: "fa-droplet",
-              action: { id: "btnWaterNow", label: "Water plant now", icon: "fa-droplet" },
+              action: { id: "btnWaterNow", label: isNight ? "Irrigate morning cycle" : "Water plant now", icon: "fa-droplet" },
             }
           : {
               title: "Pause irrigation",
@@ -64,7 +84,7 @@ export function RecommendationsCard() {
             }
           : {
               title: "Reduce humidity",
-              detail: `Target: ${s.optimal.min}–${s.optimal.max}%.`,
+              detail: `Target: ${s.optimal.min}–${s.optimal.max}%. High nocturnal humidity risks fungal spot.`,
               icon: "fa-wind",
               action: { id: "btnMistersOff", label: "Ventilate", icon: "fa-wind" },
             },
@@ -94,12 +114,41 @@ export function RecommendationsCard() {
         });
       }
     });
+
     return recs;
   };
 
   const recs = buildRecommendations();
 
+  const { isNight } = getTimeOfDayPST();
+
   if (recs.length === 0) {
+    if (isNight) {
+      return (
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-semibold text-indigo-900">Recommendations</p>
+            <span className="text-[11px] font-medium text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <i className="fa-solid fa-moon text-indigo-500"></i> Night Cycle (PST)
+            </span>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+              <i className="fa-solid fa-moon text-indigo-600"></i>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-indigo-950 leading-snug">
+                Nocturnal Rest Cycle — stomata open for CAM CO₂ uptake.
+              </p>
+              <p className="text-xs text-indigo-700 mt-1">
+                Zero/low lux is normal. Continuous monitoring of root moisture, thermal, and humidity active.
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="rounded-xl border border-agri-200 bg-agri-50 p-5">
         <div className="flex items-center justify-between mb-3">

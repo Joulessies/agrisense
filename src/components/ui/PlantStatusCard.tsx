@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useStore } from "@/store/useStore";
-import { getStatus, clamp } from "@/lib/utils";
+import { getStatus, clamp, getTimeOfDayPST, calculateAloeVitality } from "@/lib/utils";
 
 function getSensorScore(sensor: { value: number; min: number; max: number; optimal: { min: number; max: number } }) {
   const { value, min, max, optimal } = sensor;
@@ -18,21 +18,21 @@ function getSensorScore(sensor: { value: number; min: number; max: number; optim
 
 export function PlantStatusCard() {
   const { sensors } = useStore();
+  const { isNight } = getTimeOfDayPST();
   const out = Object.values(sensors).filter((s) => getStatus(s) !== "ok");
 
-  const scores = Object.values(sensors).map((s) => getSensorScore(s));
-  const vitality = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+  const { score: vitality } = calculateAloeVitality(sensors);
 
   let label, reason, iconColor, iconBg, icon, stress, stressColor;
 
   if (out.length === 0) {
     label = "Healthy";
-    reason = "All readings within optimal range";
-    iconColor = "text-agri-700";
-    iconBg = "bg-agri-100";
-    icon = "fa-heart";
+    reason = isNight ? "Nighttime resting state — CAM active" : "All readings within optimal range";
+    iconColor = isNight ? "text-indigo-600" : "text-agri-700";
+    iconBg = isNight ? "bg-indigo-50" : "bg-agri-100";
+    icon = isNight ? "fa-moon" : "fa-heart";
     stress = "Low";
-    stressColor = "text-agri-600";
+    stressColor = isNight ? "text-indigo-600" : "text-agri-600";
   } else if (out.length === 1) {
     label = "Warning";
     reason = `${out[0].label} out of range`;

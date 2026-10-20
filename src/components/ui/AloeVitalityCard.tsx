@@ -19,6 +19,8 @@ export function AloeVitalityCard({ onOpenMatrix, onOpenReport }: AloeVitalityCar
     tempScore,
     humidityScore,
     lightScore,
+    isNight,
+    isDusk,
   } = calculateAloeVitality(sensors);
 
   const soilMoisture = sensors.soilMoisture?.value ?? 25;
@@ -87,10 +89,22 @@ export function AloeVitalityCard({ onOpenMatrix, onOpenReport }: AloeVitalityCar
               <span className={`text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${statusColor}`}>
                 {statusLabel}
               </span>
+              {isNight && (
+                <span className="text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full border bg-indigo-50 text-indigo-700 border-indigo-200 flex items-center gap-1">
+                  <i className="fa-solid fa-moon text-indigo-500"></i> Nighttime Mode (PST)
+                </span>
+              )}
+              {isDusk && (
+                <span className="text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200 flex items-center gap-1">
+                  <i className="fa-solid fa-cloud-sun text-amber-500"></i> Dusk / Sunset (PST)
+                </span>
+              )}
             </div>
 
             <p className="text-xs text-slate-500 max-w-md leading-relaxed">
-              Real-time physiological composite score for <em>Aloe barbadensis Miller</em>, dynamically weighted across root zone moisture, ambient thermal range, humidity, and CAM light exposure.
+              {isNight
+                ? "Real-time nighttime composite score for Aloe barbadensis Miller. Low lux penalty is excluded as stomata open for CAM CO2 absorption during darkness."
+                : "Real-time physiological composite score for Aloe barbadensis Miller, dynamically weighted across root zone moisture, ambient thermal range, humidity, and CAM light exposure."}
             </p>
 
             <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -108,7 +122,9 @@ export function AloeVitalityCard({ onOpenMatrix, onOpenReport }: AloeVitalityCar
               </div>
               <div className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-mono text-slate-700">
                 <span className="text-slate-500 font-sans font-medium mr-1">Sunlight:</span>
-                <strong className={lightScore >= 80 ? "text-emerald-700" : "text-amber-700"}>{light.toLocaleString()} lx</strong>
+                <strong className={isNight ? "text-indigo-600" : lightScore >= 80 ? "text-emerald-700" : "text-amber-700"}>
+                  {light.toLocaleString()} lx {isNight ? "(Night Rest)" : isDusk ? "(Sunset)" : ""}
+                </strong>
               </div>
             </div>
           </div>

@@ -17,16 +17,90 @@ export function formatSensorValue(s: SensorData) {
   return { num, unit };
 }
 
-export function getStatus(sensor: SensorData) {
+/**
+ * Returns the current hour in Philippine Standard Time (PST / Asia/Manila, UTC+8).
+ */
+export function getPhilippineHour(date: Date = new Date()): number {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Manila",
+      hour: "numeric",
+      hour12: false,
+    });
+    return parseInt(formatter.format(date), 10);
+  } catch {
+    const utcHours = date.getUTCHours();
+    return (utcHours + 8) % 24;
+  }
+}
+
+/**
+ * Classifies current time in the Philippines:
+ * - Nighttime: 18:00 (6:00 PM) to 05:59 (5:59 AM) PST
+ * - Dusk / Late Afternoon: 17:00 (5:00 PM) to 17:59 (5:59 PM) PST
+ * - Daytime: 06:00 (6:00 AM) to 16:59 (4:59 PM) PST
+ */
+export function getTimeOfDayPST(date: Date = new Date()): {
+  hour: number;
+  isNight: boolean;
+  isDusk: boolean;
+  period: "day" | "dusk" | "night";
+} {
+  const hour = getPhilippineHour(date);
+  const isNight = hour >= 18 || hour < 6;
+  const isDusk = hour === 17;
+  const period = isNight ? "night" : isDusk ? "dusk" : "day";
+  return { hour, isNight, isDusk, period };
+}
+
+export function getStatus(sensor: SensorData, date: Date = new Date()) {
   const v = sensor.value;
   const { min, max } = sensor.optimal;
+
+  // Adaptive handling for light intensity (BH1750) based on Philippine Standard Time
+  if (sensor.id === "light" || sensor.unit === "lux") {
+    const { isNight, isDusk } = getTimeOfDayPST(date);
+    if (isNight) {
+      // Natural nighttime darkness: low lux (down to 0) is expected and healthy for CAM plants.
+      // Only flag if abnormally high light exposure occurs at night (>2,000 lux).
+      if (v > 2000) return "high";
+      return "ok";
+    }
+    if (isDusk) {
+      // Late afternoon / sunset: light naturally declines
+      if (v > max) return "high";
+      return "ok";
+    }
+  }
+
   if (v < min) return "low";
   if (v > max) return "high";
   return "ok";
 }
 
-export function getStatusBadge(sensor: SensorData) {
-  const s = getStatus(sensor);
+export function getStatusBadge(sensor: SensorData, date: Date = new Date()) {
+  const { isNight, isDusk } = getTimeOfDayPST(date);
+
+  if (sensor.id === "light" || sensor.unit === "lux") {
+    if (isNight) {
+      return {
+        label: "Nighttime",
+        icon: "fa-moon",
+        bg: "bg-indigo-100",
+        text: "text-indigo-800",
+      };
+    }
+    if (isDusk) {
+      return {
+        label: "Sunset / Dusk",
+        icon: "fa-cloud-sun",
+        bg: "bg-amber-100",
+        text: "text-amber-800",
+      };
+    }
+  }
+
+  const s = getStatus(sensor, date);
   if (s === "ok") {
     return {
       label: "Optimal",
@@ -51,7 +125,7 @@ export function getStatusBadge(sensor: SensorData) {
   };
 }
 
-export function calculateAloeVitality(sensors: Record<string, SensorData>) {
+export function calculateAloeVitality(sensors: Record<string, SensorData>, date: Date = new Date()) {
   const getScore = (val: number, idealMin: number, idealMax: number, safeMin: number, safeMax: number) => {
     if (val >= idealMin && val <= idealMax) return 100;
     if (val >= safeMin && val <= safeMax) {
@@ -71,20 +145,59 @@ export function calculateAloeVitality(sensors: Record<string, SensorData>) {
   const moistureScore = getScore(moisture, 18, 32, 15, 38);
   const tempScore = getScore(temp, 24, 32, 20, 35);
   const humidityScore = getScore(humidity, 45, 65, 38, 72);
-  const lightScore = getScore(light, 20000, 42000, 15000, 48000);
 
-  const score = Math.min(
-    100,
-    Math.max(
-      10,
-      Math.round(
-        moistureScore * 0.35 +
-          tempScore * 0.25 +
-          humidityScore * 0.2 +
-          lightScore * 0.2
+  const { isNight, isDusk, period, hour } = getTimeOfDayPST(date);
+
+  let lightScore: number;
+  let score: number;
+
+  if (isNight) {
+    // Nighttime: Aloe Vera stomata open for CAM CO2 capture. Darkness is natural.
+    // Exclude low lux from penalizing vitality.
+    // Re-distribute weights: Moisture 45%, Temp 30%, Humidity 25%.
+    lightScore = 100; // Expected nocturnal baseline
+    score = Math.min(
+      100,
+      Math.max(
+        10,
+        Math.round(
+          moistureScore * 0.45 +
+            tempScore * 0.30 +
+            humidityScore * 0.25
+        )
       )
-    )
-  );
+    );
+  } else if (isDusk) {
+    // Late afternoon / dusk: light is diminishing
+    lightScore = light < 5000 ? 90 : getScore(light, 10000, 35000, 5000, 45000);
+    score = Math.min(
+      100,
+      Math.max(
+        10,
+        Math.round(
+          moistureScore * 0.40 +
+            tempScore * 0.25 +
+            humidityScore * 0.25 +
+            lightScore * 0.10
+        )
+      )
+    );
+  } else {
+    // Daytime: normal daylight expectations
+    lightScore = getScore(light, 20000, 42000, 15000, 48000);
+    score = Math.min(
+      100,
+      Math.max(
+        10,
+        Math.round(
+          moistureScore * 0.35 +
+            tempScore * 0.25 +
+            humidityScore * 0.20 +
+            lightScore * 0.20
+        )
+      )
+    );
+  }
 
   const status =
     score >= 85
@@ -93,7 +206,18 @@ export function calculateAloeVitality(sensors: Record<string, SensorData>) {
       ? "Moderate Stress"
       : "Critical Attention";
 
-  return { score, status, moistureScore, tempScore, humidityScore, lightScore };
+  return {
+    score,
+    status,
+    moistureScore,
+    tempScore,
+    humidityScore,
+    lightScore,
+    isNight,
+    isDusk,
+    period,
+    philippineHour: hour,
+  };
 }
 
 export function showToast(message: string, tone: "ok" | "info" | "warning" | "error" = "ok") {

@@ -20,7 +20,7 @@ import { Radar, Bar } from "react-chartjs-2";
 import { StatCard } from "@/components/ui/StatCard";
 import { useGeminiInsights } from "@/hooks/useGeminiInsights";
 import { FarmHealthReportModal } from "@/components/ui/FarmHealthReportModal";
-import { calculateAloeVitality } from "@/lib/utils";
+import { calculateAloeVitality, getTimeOfDayPST } from "@/lib/utils";
 
 ChartJS.register(
   RadialLinearScale,
@@ -160,20 +160,26 @@ export function AnalyticsView() {
     }
   };
 
+  const { isNight, isDusk } = getTimeOfDayPST();
   const soilScore = getScore(sensors.soilMoisture);
   const tempScore = getScore(sensors.temperature);
   const humScore = getScore(sensors.humidity);
-  const lightScore = getScore(sensors.light);
-  const overallHealth = Math.round((soilScore + tempScore + humScore + lightScore) / 4);
+  const lightScore = isNight ? 100 : isDusk && sensors.light.value < 5000 ? 90 : getScore(sensors.light);
+  const overallHealth = vitalityScore;
 
   const radarData = {
-    labels: ["Soil Moisture", "Temperature", "Humidity", "Light Intensity"],
+    labels: [
+      "Soil Moisture",
+      "Temperature",
+      "Humidity",
+      isNight ? "Light (Night Rest)" : isDusk ? "Light (Dusk)" : "Light Intensity",
+    ],
     datasets: [
       {
-        label: "Current Health",
+        label: isNight ? "Night Health (PST)" : "Current Health",
         data: [soilScore, tempScore, humScore, lightScore],
-        backgroundColor: "rgba(52, 150, 88, 0.2)",
-        borderColor: "rgba(52, 150, 88, 1)",
+        backgroundColor: isNight ? "rgba(99, 102, 241, 0.2)" : "rgba(52, 150, 88, 0.2)",
+        borderColor: isNight ? "rgba(99, 102, 241, 1)" : "rgba(52, 150, 88, 1)",
         borderWidth: 2,
       },
     ],

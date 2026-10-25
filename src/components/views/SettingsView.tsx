@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useStore } from "@/store/useStore";
 import { supabase } from "@/lib/supabase";
+import { showToast } from "@/lib/utils";
 
 const BASELINE_PRESET = {
   label: "Standard Aloe Vera Baseline",
@@ -31,12 +32,10 @@ export function SettingsView() {
   } = useStore();
   const isAdmin = role === "admin";
 
-  // Crop timeline state
   const [plantAge, setLocalPlantAge] = useState(plant.age || 180);
-  const [harvestAge, setLocalHarvestAge] = useState(plant.harvestAge || 365);
+  const [harvestAge, setLocalHarvestAge] = useState(plant.harvestAge || 240);
   const [savingPlant, setSavingPlant] = useState(false);
 
-  // Critical alarm thresholds state
   const [critSoilMin, setCritSoilMin] = useState(criticalAlertSettings?.minSoilMoisture ?? 10);
   const [critSoilMax, setCritSoilMax] = useState(criticalAlertSettings?.maxSoilMoisture ?? 65);
   const [critTempMax, setCritTempMax] = useState(criticalAlertSettings?.maxTemp ?? 38);
@@ -63,10 +62,8 @@ export function SettingsView() {
       const nextMin = field === "optimal_min" ? value : current.min;
       const nextMax = field === "optimal_max" ? value : current.max;
 
-      // Update store and localStorage immediately
       setThresholds([{ id, optimal_min: nextMin, optimal_max: nextMax }]);
 
-      // Persist to Supabase sensor_settings
       const { error } = await supabase
         .from("sensor_settings")
         .update({ [field]: value, updated_at: new Date().toISOString() })
@@ -90,10 +87,8 @@ export function SettingsView() {
         updated_at: new Date().toISOString(),
       }));
 
-      // Update local storage and Zustand store
       setThresholds(updates);
 
-      // Update Supabase records
       for (const u of updates) {
         await supabase
           .from("sensor_settings")
@@ -112,10 +107,8 @@ export function SettingsView() {
     setSavingPlant(true);
     try {
       const nowIso = new Date().toISOString();
-      // 1. Immediately store in Zustand store and localStorage with current timestamp
       setPlant({ age: plantAge, baseAge: plantAge, harvestAge, lastUpdatedDate: nowIso });
 
-      // 2. Persist to database using .update().eq("id", 1) without updated_at column
       const { error } = await supabase
         .from("plant_info")
         .update({
@@ -128,9 +121,10 @@ export function SettingsView() {
         console.warn("Supabase plant_info update notice:", error.message);
       }
       addActivity(`Updated crop timeline: ${plantAge} days / ${harvestAge} days target (persisted)`, "ok");
-    } catch (err: any) {
-      console.warn("Failed to persist plant_info to DB:", err?.message);
+      showToast("Cultivation timeline saved & persisted", "ok");
+    } catch {
       addActivity(`Updated crop timeline locally: ${plantAge}d / ${harvestAge}d`, "info");
+      showToast("Updated crop timeline in local storage", "info");
     } finally {
       setSavingPlant(false);
     }
@@ -155,7 +149,6 @@ export function SettingsView() {
 
   return (
     <section className="p-8 space-y-6">
-      {/* SECTION 1: Sensor Operating Thresholds */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -183,7 +176,6 @@ export function SettingsView() {
           )}
         </div>
 
-        {/* Standard Preset Indicator */}
         <div className="px-6 py-3.5 bg-agri-50/60 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
             <span className="w-2 h-2 rounded-full bg-agri-600"></span>
@@ -202,7 +194,6 @@ export function SettingsView() {
         </div>
       </div>
 
-      {/* SECTION 2: Crop Cultivation Timeline */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-base font-bold text-slate-900">Crop Cultivation Timeline</h3>
@@ -225,8 +216,7 @@ export function SettingsView() {
               max="1500"
               value={plantAge}
               onChange={(e) => setLocalPlantAge(Number(e.target.value))}
-              disabled={!isAdmin}
-              className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-agri-500/30 disabled:bg-slate-50"
+              className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-agri-500/30 bg-white"
             />
           </div>
 
@@ -240,24 +230,20 @@ export function SettingsView() {
               max="2000"
               value={harvestAge}
               onChange={(e) => setLocalHarvestAge(Number(e.target.value))}
-              disabled={!isAdmin}
-              className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-agri-500/30 disabled:bg-slate-50"
+              className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-agri-500/30 bg-white"
             />
           </div>
 
-          {isAdmin && (
-            <button
-              type="submit"
-              disabled={savingPlant}
-              className="px-5 py-2.5 bg-agri-600 hover:bg-agri-700 disabled:opacity-60 text-white rounded-xl text-sm font-semibold shadow-sm transition cursor-pointer"
-            >
-              {savingPlant ? "Saving…" : "Save Cultivation Timeline"}
-            </button>
-          )}
+          <button
+            type="submit"
+            disabled={savingPlant}
+            className="px-5 py-2.5 bg-agri-600 hover:bg-agri-700 disabled:opacity-60 text-white rounded-xl text-sm font-semibold shadow-sm transition cursor-pointer"
+          >
+            {savingPlant ? "Saving…" : "Save Cultivation Timeline"}
+          </button>
         </form>
       </div>
 
-      {/* SECTION 3: Critical Hazard Alarm Thresholds */}
       <div className="bg-white rounded-2xl border border-rose-200 shadow-sm p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
           <div className="flex items-center gap-2.5">
@@ -376,7 +362,6 @@ export function SettingsView() {
         </form>
       </div>
 
-      {/* SECTION 4: Audio Notification Master Switch */}
       <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-card">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3.5">

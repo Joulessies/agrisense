@@ -20,9 +20,6 @@ export function formatSensorValue(s: SensorData) {
   return { num, unit };
 }
 
-/**
- * Returns the current hour in Philippine Standard Time (PST / Asia/Manila, UTC+8).
- */
 export function getPhilippineHour(date: Date = new Date()): number {
   try {
     const formatter = new Intl.DateTimeFormat("en-US", {
@@ -37,12 +34,6 @@ export function getPhilippineHour(date: Date = new Date()): number {
   }
 }
 
-/**
- * Classifies current time in the Philippines:
- * - Nighttime: 18:00 (6:00 PM) to 05:59 (5:59 AM) PST
- * - Dusk / Late Afternoon: 17:00 (5:00 PM) to 17:59 (5:59 PM) PST
- * - Daytime: 06:00 (6:00 AM) to 16:59 (4:59 PM) PST
- */
 export function getTimeOfDayPST(date: Date = new Date()): {
   hour: number;
   isNight: boolean;
@@ -272,11 +263,6 @@ export function showToast(message: string, tone: "ok" | "info" | "warning" | "er
   }, 3500);
 }
 
-/**
- * Calculates calendar days elapsed between a reference timestamp and now.
- * Compares local calendar midnights (00:00:00), ensuring that when the clock hits
- * 12:00 AM midnight (next day), exactly +1 day is added regardless of exact hours.
- */
 export function getCalendarDaysDiff(fromDateStr?: string | Date | null, toDate: Date = new Date()): number {
   if (!fromDateStr) return 0;
   try {

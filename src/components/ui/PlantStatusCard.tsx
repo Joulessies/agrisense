@@ -6,7 +6,7 @@ import { getStatus, clamp, getTimeOfDayPST, calculateAloeVitality } from "@/lib/
 import { supabase } from "@/lib/supabase";
 
 export function PlantStatusCard() {
-  const { sensors } = useStore();
+  const { sensors, telemetrySource } = useStore();
   const { isNight } = getTimeOfDayPST();
   const disconnected = Object.values(sensors).filter((s) => getStatus(s) === "disconnected");
   const out = Object.values(sensors).filter((s) => getStatus(s) !== "ok" && getStatus(s) !== "disconnected");
@@ -79,12 +79,12 @@ export function PlantStatusCard() {
   let label, reason, iconColor, iconBg, icon, stress, stressColor;
 
   if (disconnected.length > 0) {
-    label = "Sensor Offline";
-    reason = `${disconnected.map((s) => s.label).join(", ")} disconnected`;
+    label = "Sensor Disconnected";
+    reason = `${disconnected.map((s) => s.label).join(", ")}: no signal received`;
     iconColor = "text-rose-700";
     iconBg = "bg-rose-100";
     icon = "fa-plug-circle-xmark";
-    stress = "Offline";
+    stress = "Disconnected";
     stressColor = "text-rose-600";
   } else if (out.length === 0 && displayVitality >= 80) {
     label = "Healthy";
@@ -94,9 +94,9 @@ export function PlantStatusCard() {
     icon = isNight ? "fa-moon" : "fa-heart";
     stress = "Low";
     stressColor = isNight ? "text-indigo-600" : "text-agri-600";
-  } else if (out.length === 1 || (displayVitality >= 65 && displayVitality < 80)) {
+  } else if (out.length === 1) {
     label = "Warning";
-    reason = out.length === 1 ? `${out[0].label} out of range` : `Cumulative vitality at ${displayVitality}%`;
+    reason = `${out[0].label} (${out[0].value !== null ? out[0].value : '—'}${out[0].unit === 'lux' ? ' lx' : out[0].unit}) out of range`;
     iconColor = "text-amber-700";
     iconBg = "bg-amber-100";
     icon = "fa-triangle-exclamation";
@@ -104,7 +104,9 @@ export function PlantStatusCard() {
     stressColor = "text-amber-600";
   } else {
     label = "Critical";
-    reason = out.length > 1 ? `${out.length} sensors out of range` : `Low cumulative vitality (${displayVitality}%)`;
+    reason = out.length > 1
+      ? `${out.map((s) => `${s.label} (${s.value ?? '—'}${s.unit === 'lux' ? ' lx' : s.unit})`).join(", ")} out of range`
+      : `Cumulative vitality at ${displayVitality}%`;
     iconColor = "text-rose-700";
     iconBg = "bg-rose-100";
     icon = "fa-circle-exclamation";
@@ -116,17 +118,25 @@ export function PlantStatusCard() {
     <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
       <div className="flex items-center justify-between mb-3">
         <p className="text-sm font-semibold text-slate-800">Plant Status</p>
-        <i className="fa-solid fa-heart-pulse text-slate-300"></i>
+        <span
+          className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+            telemetrySource === "hardware"
+              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+              : "bg-slate-50 text-slate-600 border-slate-200"
+          }`}
+        >
+          {telemetrySource === "hardware" ? "Live ESP32" : "Baseline"}
+        </span>
       </div>
       <div className="flex items-center gap-3">
-        <div className={`w-12 h-12 rounded-full ${iconBg} flex items-center justify-center`}>
+        <div className={`w-12 h-12 rounded-full ${iconBg} flex items-center justify-center shrink-0`}>
           <i className={`fa-solid ${icon} ${iconColor} text-lg`}></i>
         </div>
         <div>
           <p className={`text-lg font-semibold ${iconColor}`}>
             {label}
           </p>
-          <p className="text-xs text-slate-500">{reason}</p>
+          <p className="text-xs text-slate-500 leading-snug">{reason}</p>
         </div>
       </div>
       <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-3 gap-2 text-center">

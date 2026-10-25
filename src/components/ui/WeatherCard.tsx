@@ -203,7 +203,7 @@ export function WeatherCard() {
                     type="text"
                     value={searchCity}
                     onChange={(e) => setSearchCity(e.target.value)}
-                    placeholder="Search city (e.g. Quezon City, Zambales, Iba)..."
+                    placeholder="Search city (e.g. Quezon City, Zambales, Iba, Subic)..."
                     className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
                   />
                 </div>
@@ -216,12 +216,47 @@ export function WeatherCard() {
                 </button>
               </form>
 
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => handleSelectPreset(PHILIPPINES_FARM_LOCATIONS[0])}
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 transition cursor-pointer flex items-center gap-1"
+                >
+                  <i className="fa-solid fa-location-dot text-[10px] text-sky-600"></i> Quezon City
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectPreset(PHILIPPINES_FARM_LOCATIONS[1])}
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition cursor-pointer flex items-center gap-1"
+                >
+                  <i className="fa-solid fa-seedling text-[10px] text-emerald-600"></i> Zambales (Iba Farm)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectPreset(PHILIPPINES_FARM_LOCATIONS[2])}
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
+                >
+                  Zambales (San Antonio)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectPreset(PHILIPPINES_FARM_LOCATIONS[5])}
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
+                >
+                  Subic / Olongapo
+                </button>
+              </div>
+
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                  Featured Farm Hubs (Including Zambales & QC)
+                  Philippine Farm Locations ({PHILIPPINES_FARM_LOCATIONS.length})
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1">
-                  {PHILIPPINES_FARM_LOCATIONS.map((loc) => {
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+                  {PHILIPPINES_FARM_LOCATIONS.filter((loc) => {
+                    if (!searchCity.trim()) return true;
+                    const q = searchCity.toLowerCase();
+                    return loc.name.toLowerCase().includes(q) || (loc.region || '').toLowerCase().includes(q);
+                  }).map((loc) => {
                     const isSelected = current.city.toLowerCase().includes(loc.name.toLowerCase().split(' ')[0]);
                     return (
                       <button

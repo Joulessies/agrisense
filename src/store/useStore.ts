@@ -329,15 +329,15 @@ export const useStore = create<AppState>((set) => ({
         try {
           return JSON.parse(localStorage.getItem("agrisense_detected_location")!);
         } catch {
-          return { name: "Manila", country: "PH", lat: 14.5995, lon: 120.9842, region: "NCR / Central Luzon" };
+          return { name: "Quezon City", country: "PH", lat: 14.6760, lon: 121.0437, region: "NCR - Quezon City Hub" };
         }
       })()
     : {
-        name: "Manila",
+        name: "Quezon City",
         country: "PH",
-        lat: 14.5995,
-        lon: 120.9842,
-        region: "NCR / Central Luzon",
+        lat: 14.6760,
+        lon: 121.0437,
+        region: "NCR - Quezon City Hub",
       },
   farmSettings: {
     potSize: "medium",

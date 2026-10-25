@@ -53,17 +53,21 @@ export interface WeatherData {
 }
 
 export const PHILIPPINES_FARM_LOCATIONS: WeatherLocation[] = [
-  { name: 'Quezon City', country: 'PH', lat: 14.6760, lon: 121.0437, region: 'NCR - Quezon City' },
-  { name: 'Zambales (Iba)', country: 'PH', lat: 15.3261, lon: 119.9822, region: 'Central Luzon - Farm Partner' },
-  { name: 'Zambales (San Antonio)', country: 'PH', lat: 14.9547, lon: 120.0886, region: 'Central Luzon - Zambales Coast' },
-  { name: 'Manila', country: 'PH', lat: 14.5995, lon: 120.9842, region: 'NCR' },
-  { name: 'Benguet (La Trinidad)', country: 'PH', lat: 16.4560, lon: 120.5872, region: 'Cordillera Highlands (Cool)' },
+  { name: 'Quezon City', country: 'PH', lat: 14.6760, lon: 121.0437, region: 'NCR - Quezon City Hub' },
+  { name: 'Zambales (Iba)', country: 'PH', lat: 15.3261, lon: 119.9822, region: 'Central Luzon - Aloe Farm Partner' },
+  { name: 'Zambales (San Antonio)', country: 'PH', lat: 14.9547, lon: 120.0886, region: 'Central Luzon - Coastal Farm' },
+  { name: 'Zambales (San Narciso)', country: 'PH', lat: 15.0130, lon: 120.0800, region: 'Central Luzon - Agricultural Zone' },
+  { name: 'Zambales (Botolan)', country: 'PH', lat: 15.2892, lon: 120.0253, region: 'Central Luzon - Plains' },
+  { name: 'Zambales (Subic / Olongapo)', country: 'PH', lat: 14.8290, lon: 120.2828, region: 'Central Luzon - South Zambales' },
+  { name: 'Manila', country: 'PH', lat: 14.5995, lon: 120.9842, region: 'NCR - Central' },
+  { name: 'Bulacan (San Jose del Monte)', country: 'PH', lat: 14.8139, lon: 121.0453, region: 'Central Luzon' },
+  { name: 'Pampanga (San Fernando)', country: 'PH', lat: 15.0298, lon: 120.6896, region: 'Central Luzon' },
+  { name: 'Benguet (La Trinidad)', country: 'PH', lat: 16.4560, lon: 120.5872, region: 'Cordillera Highlands' },
   { name: 'Tagaytay', country: 'PH', lat: 14.1153, lon: 120.9621, region: 'Cavite Highlands' },
   { name: 'Nueva Ecija (Cabanatuan)', country: 'PH', lat: 15.4865, lon: 120.9734, region: 'Central Luzon Plains' },
-  { name: 'Bukidnon (Malaybalay)', country: 'PH', lat: 8.1575, lon: 125.1278, region: 'Northern Mindanao' },
-  { name: 'Davao City', country: 'PH', lat: 7.1907, lon: 125.4504, region: 'Davao Region' },
   { name: 'Batangas City', country: 'PH', lat: 13.7565, lon: 121.0583, region: 'CALABARZON' },
   { name: 'Cebu City', country: 'PH', lat: 10.3157, lon: 123.8854, region: 'Central Visayas' },
+  { name: 'Davao City', country: 'PH', lat: 7.1907, lon: 125.4504, region: 'Davao Region' },
 ];
 
 export function isWeatherConfigured() {
@@ -255,7 +259,6 @@ export async function fetchWeather(lat: number, lon: number, locationName?: stri
     }
   }
 
-  // Ensure forecast ALWAYS contains 7 valid consecutive days for the microclimate timeline
   if (forecast.length < 7) {
     const baseDate = new Date();
     const existingDates = new Set(forecast.map((f) => f.date));
@@ -348,29 +351,44 @@ export async function fetchWeather(lat: number, lon: number, locationName?: stri
 }
 
 export async function fetchWeatherByCity(city: string): Promise<WeatherData> {
-  const preset = PHILIPPINES_FARM_LOCATIONS.find((p) => p.name.toLowerCase().includes(city.toLowerCase()));
+  const q = city.trim().toLowerCase();
+  const preset = PHILIPPINES_FARM_LOCATIONS.find((p) => {
+    const n = p.name.toLowerCase();
+    const r = (p.region || '').toLowerCase();
+    if (q === 'qc' && n.includes('quezon')) return true;
+    if (q.includes('zambales') && n.includes('zambales')) return true;
+    return n.includes(q) || r.includes(q) || q.includes(n.split(' ')[0]);
+  });
   if (preset) {
     return fetchWeather(preset.lat, preset.lon, preset.name);
   }
 
   if (isWeatherConfigured()) {
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3500);
       const geoRes = await fetch(
-        `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city)}&limit=1&appid=${API_KEY}`
+        `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city)},PH&limit=1&appid=${API_KEY}`,
+        { signal: controller.signal }
       );
+      clearTimeout(timeout);
       if (geoRes.ok) {
         const geo = await geoRes.json();
         if (geo.length > 0) {
           return fetchWeather(geo[0].lat, geo[0].lon, geo[0].name);
         }
       }
-    } catch (e) {
-      console.warn('[Weather] Geocoding OpenWeather failed, trying Open-Meteo:', e);
-    }
+    } catch {}
   }
 
   try {
-    const omGeoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3500);
+    const omGeoRes = await fetch(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&country_code=PH&count=1&language=en&format=json`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeout);
     if (omGeoRes.ok) {
       const omGeo = await omGeoRes.json();
       if (omGeo.results && omGeo.results.length > 0) {
@@ -378,9 +396,8 @@ export async function fetchWeatherByCity(city: string): Promise<WeatherData> {
         return fetchWeather(r.latitude, r.longitude, r.name);
       }
     }
-  } catch (e) {
-    console.error('[Weather] Open-Meteo Geocoding failed:', e);
-  }
+  } catch {}
 
-  return fetchWeather(14.5995, 120.9842, city);
+  const fallback = PHILIPPINES_FARM_LOCATIONS[0];
+  return fetchWeather(fallback.lat, fallback.lon, city);
 }

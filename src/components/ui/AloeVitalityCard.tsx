@@ -23,10 +23,11 @@ export function AloeVitalityCard({ onOpenMatrix, onOpenReport }: AloeVitalityCar
     isDusk,
   } = calculateAloeVitality(sensors);
 
-  const soilMoisture = sensors.soilMoisture?.value ?? 25;
-  const temperature = sensors.temperature?.value ?? 28;
-  const humidity = sensors.humidity?.value ?? 55;
-  const light = sensors.light?.value ?? 25000;
+  const rawSoil = sensors.soilMoisture?.value;
+  const rawTemp = sensors.temperature?.value;
+  const rawHum = sensors.humidity?.value;
+  const rawLight = sensors.light?.value;
+  const hasDisconnected = rawSoil === null || rawTemp === null || rawHum === null || rawLight === null;
 
   const statusColor =
     compositeScore >= 85
@@ -96,6 +97,11 @@ export function AloeVitalityCard({ onOpenMatrix, onOpenReport }: AloeVitalityCar
               <span className={`text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${statusColor}`}>
                 {statusLabel}
               </span>
+              {hasDisconnected && (
+                <span className="text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full border bg-rose-50 text-rose-700 border-rose-200 flex items-center gap-1">
+                  <i className="fa-solid fa-plug-circle-xmark text-rose-500"></i> Sensor Offline
+                </span>
+              )}
               {isNight && (
                 <span className="text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full border bg-indigo-50 text-indigo-700 border-indigo-200 flex items-center gap-1">
                   <i className="fa-solid fa-moon text-indigo-500"></i> Nighttime Mode (PST)
@@ -117,20 +123,26 @@ export function AloeVitalityCard({ onOpenMatrix, onOpenReport }: AloeVitalityCar
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <div className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-mono text-slate-700">
                 <span className="text-slate-500 font-sans font-medium mr-1">Soil:</span>
-                <strong className={moistureScore >= 80 ? "text-emerald-700" : "text-amber-700"}>{soilMoisture}%</strong>
+                <strong className={rawSoil === null ? "text-slate-400 font-normal" : moistureScore >= 80 ? "text-emerald-700" : "text-amber-700"}>
+                  {rawSoil !== null && rawSoil !== undefined ? `${rawSoil}%` : "—"}
+                </strong>
               </div>
               <div className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-mono text-slate-700">
                 <span className="text-slate-500 font-sans font-medium mr-1">Temp:</span>
-                <strong className={tempScore >= 80 ? "text-emerald-700" : "text-amber-700"}>{temperature}°C</strong>
+                <strong className={rawTemp === null ? "text-slate-400 font-normal" : tempScore >= 80 ? "text-emerald-700" : "text-amber-700"}>
+                  {rawTemp !== null && rawTemp !== undefined ? `${rawTemp}°C` : "—"}
+                </strong>
               </div>
               <div className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-mono text-slate-700">
                 <span className="text-slate-500 font-sans font-medium mr-1">Humidity:</span>
-                <strong className={humidityScore >= 80 ? "text-emerald-700" : "text-amber-700"}>{humidity}%</strong>
+                <strong className={rawHum === null ? "text-slate-400 font-normal" : humidityScore >= 80 ? "text-emerald-700" : "text-amber-700"}>
+                  {rawHum !== null && rawHum !== undefined ? `${rawHum}%` : "—"}
+                </strong>
               </div>
               <div className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-mono text-slate-700">
                 <span className="text-slate-500 font-sans font-medium mr-1">Sunlight:</span>
-                <strong className={isNight ? "text-indigo-600" : lightScore >= 80 ? "text-emerald-700" : "text-amber-700"}>
-                  {light.toLocaleString()} lx {isNight ? "(Night Rest)" : isDusk ? "(Sunset)" : ""}
+                <strong className={rawLight === null ? "text-slate-400 font-normal" : isNight ? "text-indigo-600" : lightScore >= 80 ? "text-emerald-700" : "text-amber-700"}>
+                  {rawLight !== null && rawLight !== undefined ? `${rawLight.toLocaleString()} lx ${isNight ? "(Night Rest)" : isDusk ? "(Sunset)" : ""}` : "—"}
                 </strong>
               </div>
             </div>

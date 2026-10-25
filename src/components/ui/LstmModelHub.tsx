@@ -35,11 +35,9 @@ export function LstmModelHub() {
   const [activeChartMetric, setActiveChartMetric] = useState<"vitality" | "soilMoisture">("vitality");
   const [showFullReport, setShowFullReport] = useState(false);
 
-  // Live inference state
   const [inferenceResult, setInferenceResult] = useState<any | null>(null);
   const [inferencing, setInferencing] = useState(false);
 
-  // Fetch model metadata & actual-vs-predicted test samples on mount
   useEffect(() => {
     let mounted = true;
     async function loadModelData() {
@@ -93,20 +91,18 @@ export function LstmModelHub() {
     }
   };
 
-  // Run initial inference on load once sensors are ready
   useEffect(() => {
     if (sensors && !inferenceResult) {
       handleRunInference();
     }
   }, [sensors]);
 
-  // Prepare chart dataset from actual_vs_predicted test samples
   const chartData = useMemo(() => {
     if (!modelData?.testBenchmarkSample || modelData.testBenchmarkSample.length === 0) {
       return null;
     }
 
-    const samples = modelData.testBenchmarkSample.slice(0, 36); // View 36 sample test hours
+    const samples = modelData.testBenchmarkSample.slice(0, 36);
     const labels = samples.map((s: any) => {
       const parts = s.timestamp.split(" ");
       const timeParts = (parts[1] || "").split(":");
@@ -170,7 +166,6 @@ export function LstmModelHub() {
 
   return (
     <div className="space-y-6">
-      {/* 1. Header Banner & Architecture Status */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-md border border-slate-800">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
@@ -185,7 +180,7 @@ export function LstmModelHub() {
               Bi-LSTM Aloe Vera AI Predictor & Vitality Engine
             </h2>
             <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-              Matalinong A.I. na nag-aaral ng buong maghapon at magdamag (24-hour sensor memory) upang mahulaan ang kalusugan ng Aloe Vera, evaporation ng lupa, at tamang oras ng pagdidilig.
+              Deep learning AI that analyzes 24-hour microclimate history to predict aloe vera vitality, soil evaporation rates, and optimal watering schedules.
             </p>
           </div>
 
@@ -197,7 +192,7 @@ export function LstmModelHub() {
               className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer"
             >
               <i className={`fa-solid fa-bolt ${inferencing ? "animate-spin" : ""}`}></i>
-              {inferencing ? "Inferencing…" : "Subukan ang Live AI Inference"}
+              {inferencing ? "Inferencing…" : "Run Live AI Inference"}
             </button>
             <button
               type="button"
@@ -205,17 +200,16 @@ export function LstmModelHub() {
               className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-xl border border-white/20 transition flex items-center gap-2 cursor-pointer"
             >
               <i className="fa-solid fa-file-lines text-xs"></i>
-              {showFullReport ? "Itago ang Full Technical Report" : "Buksan ang Technical Report"}
+              {showFullReport ? "Hide Full Technical Report" : "View Full Technical Report"}
             </button>
           </div>
         </div>
 
-        {/* Neural Pipeline Quick Badges */}
         <div className="mt-6 pt-5 border-t border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs">
           <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
             <p className="text-[10px] text-slate-400 uppercase font-semibold">Memory Window</p>
-            <p className="text-sm font-bold text-white mt-0.5">24 Oras (4 Sensors)</p>
-            <p className="text-[10px] text-slate-400 mt-0.5">Init, Hamog, Lupa, Araw</p>
+            <p className="text-sm font-bold text-white mt-0.5">24 Hours (4 Sensors)</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Temp, Humidity, Soil, Light</p>
           </div>
           <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
             <p className="text-[10px] text-slate-400 uppercase font-semibold">AI Architecture</p>
@@ -225,17 +219,16 @@ export function LstmModelHub() {
           <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
             <p className="text-[10px] text-slate-400 uppercase font-semibold">Accuracy Score</p>
             <p className="text-sm font-bold text-amber-300 mt-0.5">R² 88.8% Fit</p>
-            <p className="text-[10px] text-amber-400/80 mt-0.5">Mababa sa 1% error</p>
+            <p className="text-[10px] text-amber-400/80 mt-0.5">Under 1% Mean Error</p>
           </div>
           <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
             <p className="text-[10px] text-slate-400 uppercase font-semibold">Output Predictions</p>
-            <p className="text-sm font-bold text-emerald-300 mt-0.5">Kalusugan & Lupa</p>
+            <p className="text-sm font-bold text-emerald-300 mt-0.5">Vitality & Soil</p>
             <p className="text-[10px] text-emerald-400/80 mt-0.5">Vitality + 24h Moisture</p>
           </div>
         </div>
       </div>
 
-      {/* 2. Simple Explanation Section for Everyday Humans */}
       <div className="bg-gradient-to-br from-emerald-50/60 via-white to-teal-50/60 rounded-2xl border border-emerald-200/80 p-5 shadow-xs space-y-4">
         <div className="flex items-center gap-2.5 pb-2 border-b border-emerald-100">
           <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
@@ -243,10 +236,10 @@ export function LstmModelHub() {
           </div>
           <div>
             <h3 className="text-sm font-bold text-slate-900">
-              💡 Paano Ito Gumagana? (Gabay para sa Lahat)
+              💡 How Does This Work? (Simple Guide)
             </h3>
             <p className="text-[11px] text-slate-500">
-              Simpleng paliwanag kung bakit ginagamit ang LSTM at kung ano ang ibig sabihin ng mga numero para sa iyong tanim:
+              A simple explanation of why we use an LSTM model and what these numbers mean for your crops:
             </p>
           </div>
         </div>
@@ -255,49 +248,48 @@ export function LstmModelHub() {
           <div className="p-3.5 bg-white rounded-xl border border-emerald-100 shadow-2xs space-y-1">
             <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs">
               <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px]">1</span>
-              <span>Bakit may Memory ang A.I.?</span>
+              <span>Why Does the AI Have Memory?</span>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed pt-1">
-              Ang Aloe Vera ay hindi agad nalalanta sa isang oras na init. <strong>Naaalala ng LSTM ang nakaraang 24 oras</strong> upang masigurong hindi magkakamali ang hula kahit may panandaliang pagtaas ng temperatura.
+              Aloe vera does not wilt after a single hot hour. The LSTM remembers the past 24 hours of sensor trends so brief heat spikes will not trigger false alarms.
             </p>
           </div>
 
           <div className="p-3.5 bg-white rounded-xl border border-teal-100 shadow-2xs space-y-1">
             <div className="flex items-center gap-2 text-teal-800 font-bold text-xs">
               <span className="w-5 h-5 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center text-[10px]">2</span>
-              <span>Bakit 24 Oras ang Cycle?</span>
+              <span>Why Use a 24-Hour Cycle?</span>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed pt-1">
-              Ang Aloe ay isang <em>CAM plant</em>: <strong>sarado ang pores sa tanghali</strong> para magtipid sa tubig, at <strong>umiinom/humihinga sa gabi</strong>. Kailangan ng AI ang buong maghapon at magdamag para makita ang kumpletong pagbabago.
+              Aloe is a <em>CAM plant</em>: it keeps pores closed during hot daylight to save water, and breathes and absorbs moisture at night. The AI tracks the full day-night cycle for accurate forecasts.
             </p>
           </div>
 
           <div className="p-3.5 bg-white rounded-xl border border-indigo-100 shadow-2xs space-y-1">
             <div className="flex items-center gap-2 text-indigo-800 font-bold text-xs">
               <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px]">3</span>
-              <span>Ano ang Maitutulong Sa'yo?</span>
+              <span>How Does This Help You?</span>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed pt-1">
-              Sinasabi sa'yo <strong>18 oras bago manipis ang dahon</strong> kung kailangan na ba talagang diligan ang halaman, at pinipigilan ka sa labis na pagdidilig na sanhi ng nakakamatay na <em>root rot</em>.
+              It warns you up to 18 hours before leaves start thinning if watering is required, while protecting your roots from overwatering and deadly root rot.
             </p>
           </div>
         </div>
       </div>
 
-      {/* 3. Live Inference Result Card (Connected to real sensors) */}
       {inferenceResult && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
             <div>
               <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-md">
-                Kasalukuyang Datos Mula sa Sensors
+                Live Sensor Telemetry
               </span>
               <h3 className="text-base font-bold text-slate-900 mt-1">
-                Kinalabasan ng Live AI Prediction
+                Live AI Inference Output
               </h3>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">Tiwala ng AI (Confidence):</span>
+              <span className="text-xs text-slate-500">Model Confidence:</span>
               <span className="text-xs font-bold text-emerald-700 bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 rounded-full">
                 {inferenceResult.confidence}
               </span>
@@ -307,68 +299,68 @@ export function LstmModelHub() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-5">
             <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-xl">
               <p className="text-xs font-bold uppercase tracking-wider text-emerald-800">
-                Lusog ng Halaman (Vitality)
+                Plant Vitality Index
               </p>
               <p className="text-3xl font-extrabold text-emerald-700 mt-1">
                 {inferenceResult.predictedVitality}%
               </p>
               <p className="text-[11px] text-emerald-700 mt-1 font-medium">
                 {inferenceResult.predictedVitality >= 85
-                  ? "✓ Napakalusog at masigla ang tanim"
+                  ? "✓ Healthy & thriving crop"
                   : inferenceResult.predictedVitality >= 65
-                  ? "⚠️ Bahagyang stressed ang dahon"
-                  : "🚨 Nangangailangan ng agarang atensyon"}
+                  ? "⚠️ Mild leaf stress detected"
+                  : "🚨 Requires urgent farmer attention"}
               </p>
               <span className="text-[10px] text-slate-400 block mt-1">
-                Batay sa {sensors.soilMoisture.value}% moisture at {sensors.temperature.value}°C
+                Based on {sensors.soilMoisture.value}% soil moisture and {sensors.temperature.value}°C
               </span>
             </div>
 
             <div className="p-4 bg-sky-50/70 border border-sky-200 rounded-xl">
               <p className="text-xs font-bold uppercase tracking-wider text-sky-800">
-                Tubig sa Lupa Bukas (24h)
+                Projected Soil Moisture (24h)
               </p>
               <p className="text-3xl font-extrabold text-sky-700 mt-1">
                 {inferenceResult.predictedSoilMoisture24h}%
               </p>
               <p className="text-[11px] text-sky-700 mt-1 font-medium">
                 {inferenceResult.predictedSoilMoisture24h < 18
-                  ? "⚠️ Aabot sa tuyong threshold bukas"
-                  : "✓ Mananatiling sapat ang basâ ng lupa"}
+                  ? "⚠️ Reaching dry threshold tomorrow"
+                  : "✓ Adequate moisture maintained"}
               </p>
               <span className="text-[10px] text-slate-400 block mt-1">
-                Tinatayang evaporation sa susunod na 24 oras
+                Projected evaporation over next 24 hours
               </span>
             </div>
 
             <div className="p-4 bg-indigo-50/70 border border-indigo-200 rounded-xl">
               <p className="text-xs font-bold uppercase tracking-wider text-indigo-800">
-                Laman ng Aloe Gel (Plumpness)
+                Leaf Gel Plumpness (Turgor)
               </p>
               <p className="text-3xl font-extrabold text-indigo-700 mt-1">
                 {inferenceResult.leafTurgor}%
               </p>
               <p className="text-[11px] text-indigo-700 mt-1 font-medium">
                 {inferenceResult.leafTurgor >= 80
-                  ? "✓ Makapal, matigas, at puno ng gel"
-                  : "⚠️ Medyo naninipis ang laman"}
+                  ? "✓ Thick, firm, and fully hydrated"
+                  : "⚠️ Slight leaf thinning"}
               </p>
               <span className="text-[10px] text-slate-400 block mt-1">
-                Hydration pressure sa loob ng laman ng dahon
+                Internal leaf gel hydration pressure
               </span>
             </div>
 
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
               <p className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                Kondisyon ng Halaman
+                Crop Physiological State
               </p>
               <p className="text-base font-bold text-slate-900 mt-1">
                 {inferenceResult.condition}
               </p>
               <p className="text-[11px] text-slate-600 mt-1 font-medium">
                 {inferenceResult.camStomatalState.includes("Closed")
-                  ? "☀️ Sarado ang pores (nagtitipid sa init ng araw)"
-                  : "🌙 Bukas ang pores (humihinga at nag-iipon)"}
+                  ? "☀️ Stomata closed (conserving water from daytime heat)"
+                  : "🌙 Stomata open (nocturnal CAM respiration active)"}
               </p>
               <span className="text-[10px] text-slate-400 block mt-1 truncate" title={inferenceResult.camStomatalState}>
                 {inferenceResult.camStomatalState}
@@ -378,14 +370,12 @@ export function LstmModelHub() {
         </div>
       )}
 
-      {/* 4. Evaluation Metrics Cards with Simple & Academic Indicators */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Plant Vitality Index Metrics */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h4 className="text-base font-bold text-slate-900">Katumpakan sa Lusog ng Halaman (Vitality)</h4>
-              <p className="text-xs text-slate-500">Sinuri gamit ang 288 oras ng totoong holdout test data</p>
+              <h4 className="text-base font-bold text-slate-900">Plant Vitality Index Accuracy</h4>
+              <p className="text-xs text-slate-500">Evaluated on 288 hours of real holdout test data</p>
             </div>
             <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
               R² = {modelData?.metrics?.vitality?.r2Percentage ?? "88.75%"} (High Fit)
@@ -398,14 +388,14 @@ export function LstmModelHub() {
               <p className="text-lg font-bold text-slate-900 mt-0.5">
                 {modelData?.metrics?.vitality?.mae ?? "0.7144"}
               </p>
-              <p className="text-[10px] text-emerald-600 font-semibold">&lt; 1% Diperensya</p>
+              <p className="text-[10px] text-emerald-600 font-semibold">&lt; 1% Difference</p>
             </div>
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
               <p className="text-[10px] font-bold text-slate-500 uppercase">RMSE</p>
               <p className="text-lg font-bold text-slate-900 mt-0.5">
                 {modelData?.metrics?.vitality?.rmse ?? "0.8822"}
               </p>
-              <p className="text-[10px] text-emerald-600 font-semibold">Mataas na Pagtugma</p>
+              <p className="text-[10px] text-emerald-600 font-semibold">High Alignment</p>
             </div>
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
               <p className="text-[10px] font-bold text-slate-500 uppercase">MSE</p>
@@ -419,17 +409,16 @@ export function LstmModelHub() {
               <p className="text-lg font-bold text-slate-900 mt-0.5">
                 {modelData?.metrics?.vitality?.mape ?? "0.78%"}
               </p>
-              <p className="text-[10px] text-emerald-600 font-semibold">99.2% Maaasahan</p>
+              <p className="text-[10px] text-emerald-600 font-semibold">99.2% Reliable</p>
             </div>
           </div>
         </div>
 
-        {/* Soil Moisture Trajectory Metrics */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h4 className="text-base font-bold text-slate-900">Katumpakan sa Tubig ng Lupa (Soil Moisture)</h4>
-              <p className="text-xs text-slate-500">Pagsusuri sa pagkatuyo at pagdilig sa loob ng 24 oras</p>
+              <h4 className="text-base font-bold text-slate-900">Soil Moisture Trajectory Accuracy</h4>
+              <p className="text-xs text-slate-500">Evaluated across drying and watering cycles over 24 hours</p>
             </div>
             <span className="text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2.5 py-1 rounded-full">
               R² = {modelData?.metrics?.soilMoisture?.r2Percentage ?? "98.68%"} (Near Perfect)
@@ -438,76 +427,74 @@ export function LstmModelHub() {
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-              <p className="text-[10px] font-bold text-slate-500 uppercase">MAE (Diperensya)</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase">MAE (Error)</p>
               <p className="text-lg font-bold text-slate-900 mt-0.5">
                 {modelData?.metrics?.soilMoisture?.mae ?? "0.3626"}
               </p>
-              <p className="text-[10px] text-emerald-600 font-semibold">&lt; 0.5% Diperensya</p>
+              <p className="text-[10px] text-emerald-600 font-semibold">&lt; 0.5% Difference</p>
             </div>
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-              <p className="text-[10px] font-bold text-slate-500 uppercase">RMSE (Paglihis)</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase">RMSE</p>
               <p className="text-lg font-bold text-slate-900 mt-0.5">
                 {modelData?.metrics?.soilMoisture?.rmse ?? "0.4603"}
               </p>
-              <p className="text-[10px] text-emerald-600 font-semibold">Minimal na Error</p>
+              <p className="text-[10px] text-emerald-600 font-semibold">Minimal Error</p>
             </div>
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-              <p className="text-[10px] font-bold text-slate-500 uppercase">MSE (Variance)</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase">MSE</p>
               <p className="text-lg font-bold text-slate-900 mt-0.5">
                 {modelData?.metrics?.soilMoisture?.mse ?? "0.2119"}
               </p>
-              <p className="text-[10px] text-slate-400 font-semibold">Sobrang Consistent</p>
+              <p className="text-[10px] text-slate-400 font-semibold">Low Variance</p>
             </div>
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
               <p className="text-[10px] font-bold text-slate-500 uppercase">Reliability (MAPE)</p>
               <p className="text-lg font-bold text-slate-900 mt-0.5">
                 {modelData?.metrics?.soilMoisture?.mape ?? "1.16%"}
               </p>
-              <p className="text-[10px] text-emerald-600 font-semibold">98.8% Maaasahan</p>
+              <p className="text-[10px] text-emerald-600 font-semibold">98.8% Reliable</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Quick Human-Friendly Metrics Guide Banner */}
       <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-3">
         <div className="flex items-center gap-2">
           <i className="fa-solid fa-graduation-cap text-indigo-600 text-sm"></i>
           <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-            Ano ang Ibig Sabihin ng mga Numerong Ito? (Gabay sa Panel at Pagsusuri)
+            What Do These Numbers Mean? (Plain English Guide)
           </h4>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
           <div className="p-3 bg-white rounded-xl border border-slate-200/70">
             <strong className="text-slate-900 text-xs block mb-1">🎯 R² Score (88.8% & 98.7%):</strong>
             <p className="text-[11px] text-slate-600 leading-relaxed">
-              Sinusukat kung gaano katugma ang hula ng A.I. sa totoong galaw ng kalikasan. Dahil <strong>lampas 85%</strong> ang marka, napatunayan na maaasahan at hindi basta hula-hula lamang.
+              Measures how closely the AI predictions track real plant trends. Scores above 85% prove the model reliably captures true biological patterns rather than random guessing.
             </p>
           </div>
           <div className="p-3 bg-white rounded-xl border border-slate-200/70">
             <strong className="text-slate-900 text-xs block mb-1">📏 MAE Error (&lt; 1%):</strong>
             <p className="text-[11px] text-slate-600 leading-relaxed">
-              Ang karaniwang diperensya o distansya ng hula sa totoo. Sa bawat 100 puntos, <strong>mas mababa sa 1 puntos</strong> lang ang maaaring maging error ng modelo—halos eksakto sa totoo!
+              Mean Absolute Error measures average deviation. Out of 100 points, the model deviates by less than 1 point on average—matching actual sensor values closely.
             </p>
           </div>
           <div className="p-3 bg-white rounded-xl border border-slate-200/70">
             <strong className="text-slate-900 text-xs block mb-1">🛡️ Reliability / MAPE (99%+):</strong>
             <p className="text-[11px] text-slate-600 leading-relaxed">
-              Nangangahulugang <strong>99 sa 100 beses</strong> ay tama at maaasahan ang babala ng A.I. bago pa man magsimulang manipis o malanta ang dahon ng Aloe Vera.
+              Over 99 out of 100 times, the AI provides accurate and dependable forecasts before leaves begin to visibly thin or wilt.
             </p>
           </div>
         </div>
       </div>
 
-      {/* 4. Interactive Actual vs. Predicted Curve */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
           <div>
             <h4 className="text-base font-bold text-slate-900">
-              Pagsusuri ng Katumpakan: Totoong Datos vs. Hula ng A.I.
+              Accuracy Evaluation: Ground Truth vs. AI Forecast
             </h4>
             <p className="text-xs text-slate-500 mt-0.5">
-              Paghahambing ng totoong na-record na sensor data (Ground Truth) at ng hinulaan ng Bi-LSTM sa 288 oras na test sequences.
+              Comparison of actual greenhouse sensor logs (Ground Truth) and Bi-LSTM predictions across 288 hours of holdout test data.
             </p>
           </div>
 
@@ -521,7 +508,7 @@ export function LstmModelHub() {
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              Lusog ng Halaman (Vitality - R² 88.8%)
+              Plant Vitality Index (R² 88.8%)
             </button>
             <button
               type="button"
@@ -532,7 +519,7 @@ export function LstmModelHub() {
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              Tubig sa Lupa (Soil Moisture - R² 98.7%)
+              Soil Moisture (R² 98.7%)
             </button>
           </div>
         </div>
@@ -562,7 +549,7 @@ export function LstmModelHub() {
             />
           ) : (
             <div className="h-full flex items-center justify-center text-slate-400 text-xs">
-              Kinukuha ang benchmark test curves…
+              Loading benchmark test curves…
             </div>
           )}
         </div>
@@ -570,21 +557,20 @@ export function LstmModelHub() {
         <div className="mt-4 p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl flex items-start gap-2.5 text-xs text-slate-600">
           <i className="fa-solid fa-circle-info text-indigo-600 mt-0.5 text-xs shrink-0"></i>
           <div>
-            <strong className="text-slate-800 font-semibold text-xs">Paano Basahin ang Graph (Gabay para sa Lahat):</strong>
+            <strong className="text-slate-800 font-semibold text-xs">How to Read This Chart:</strong>
             <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-              Ang <strong>madilim/solidong linya</strong> ay ang totoong datos mula sa greenhouse (Ground Truth), samantalang ang <strong>may kulay na linya</strong> ay ang hinulaan ng Bi-LSTM A.I. Kapag magkadikit at pareho ang kurba ng dalawang linya, ibig sabihin ay <strong>mataas ang katumpakan (accuracy)</strong> ng ating neural model.
+              The <strong>solid dark line</strong> represents actual greenhouse sensor recordings (Ground Truth), while the <strong>colored line</strong> represents the Bi-LSTM AI forecast. When both curves track closely together, it demonstrates high predictive accuracy.
             </p>
           </div>
         </div>
       </div>
 
-      {/* 5. Direct Download Center for Model Assets */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
         <h4 className="text-base font-bold text-slate-900 mb-1">
-          Mga Downloadable na File para sa Research & Thesis Defense
+          Downloadable Research & Evaluation Assets
         </h4>
         <p className="text-xs text-slate-500 mb-4">
-          I-download nang buo ang Research Paper PDF, historical dataset CSV, ground truth vs predictions, at PyTorch model script.
+          Download the research paper PDF, historical dataset CSV, ground truth vs predictions data, and the PyTorch model code.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -602,7 +588,7 @@ export function LstmModelHub() {
                 Research Paper PDF
               </p>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Kumpletong 2-pahinang paper kasama ang methodology at equations (.pdf)
+                2-page technical research brief covering methodology and equations (.pdf)
               </p>
             </div>
             <span className="text-[10px] font-bold text-emerald-700 mt-3 inline-flex items-center gap-1">
@@ -622,7 +608,7 @@ export function LstmModelHub() {
                 Historical Dataset
               </p>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                1,440 oras na sensor logs (temp, hum, lux, soil) (.csv)
+                1,440 hours of greenhouse sensor logs (temp, humidity, lux, soil) (.csv)
               </p>
             </div>
             <span className="text-[10px] font-bold text-emerald-700 mt-3 inline-flex items-center gap-1">
@@ -642,7 +628,7 @@ export function LstmModelHub() {
                 Actual vs Predicted
               </p>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Holdout test ground truth, hula ng AI, at residuals (.csv)
+                Holdout ground truth, AI predictions, and residuals (.csv)
               </p>
             </div>
             <span className="text-[10px] font-bold text-indigo-700 mt-3 inline-flex items-center gap-1">
@@ -662,7 +648,7 @@ export function LstmModelHub() {
                 PyTorch Model Script
               </p>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Python code para sa Bi-LSTM architecture at training loop (.py)
+                Python script containing Bi-LSTM architecture and training pipeline (.py)
               </p>
             </div>
             <span className="text-[10px] font-bold text-amber-700 mt-3 inline-flex items-center gap-1">
@@ -682,7 +668,7 @@ export function LstmModelHub() {
                 Jupyter Notebook
               </p>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Interactive EDA, training graphs, at evaluation analysis (.ipynb)
+                Interactive EDA, training plots, and model evaluation (.ipynb)
               </p>
             </div>
             <span className="text-[10px] font-bold text-rose-700 mt-3 inline-flex items-center gap-1">
@@ -692,7 +678,6 @@ export function LstmModelHub() {
         </div>
       </div>
 
-      {/* 6. Expandable Model Evaluation Markdown Report */}
       {showFullReport && modelData?.reportMarkdown && (
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">

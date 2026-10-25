@@ -97,8 +97,8 @@ export function AlertsView() {
 
   if (liveAlerts.length === 0) {
     return (
-      <section className="p-8">
-        <div className="bg-white rounded-xl border border-slate-200 shadow-card p-10 text-center">
+      <section className="p-8 space-y-6">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-card p-8 text-center">
           <div className="w-14 h-14 rounded-2xl bg-agri-50 mx-auto flex items-center justify-center mb-4">
             <i className={`fa-solid ${isNight ? "fa-moon text-indigo-600" : "fa-circle-check text-agri-600"} text-xl`}></i>
           </div>
@@ -110,6 +110,64 @@ export function AlertsView() {
               ? "Darkness is expected for nocturnal CAM respiration in the Philippines. Soil moisture, temperature, and humidity remain continuously safeguarded."
               : "All sensor readings and hardware nodes are operating within optimal range. You're good to go!"}
           </p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <i className="fa-solid fa-book-bookmark text-emerald-600"></i> Standard Agronomist Recommendations & Preventive Protocols
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Reference guidelines for mature Aloe Vera (Aloe Barbadensis Miller) under tropical Philippine microclimates.
+              </p>
+            </div>
+            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+              DA-BPI Best Practices
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+            <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/50 space-y-2">
+              <div className="flex items-center gap-2 text-emerald-800 font-bold">
+                <i className="fa-solid fa-droplet text-sm"></i>
+                <span>Watering & Soil Moisture</span>
+              </div>
+              <p className="text-slate-600 leading-relaxed text-[11px]">
+                Target: <strong>20%–40%</strong>. Use soak-and-dry irrigation. Water root base in early morning (~8:00 AM). Avoid standing water on leaves to prevent fungal collar rot.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/50 space-y-2">
+              <div className="flex items-center gap-2 text-amber-800 font-bold">
+                <i className="fa-solid fa-temperature-half text-sm"></i>
+                <span>Thermal Management</span>
+              </div>
+              <p className="text-slate-600 leading-relaxed text-[11px]">
+                Target: <strong>25°C–32°C</strong>. Midday temperatures above 35°C cause leaf parenchymal collapse. Open greenhouse vents or position shade netting during peak heat.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl border border-sky-200 bg-sky-50/50 space-y-2">
+              <div className="flex items-center gap-2 text-sky-800 font-bold">
+                <i className="fa-solid fa-cloud text-sm"></i>
+                <span>Relative Humidity</span>
+              </div>
+              <p className="text-slate-600 leading-relaxed text-[11px]">
+                Target: <strong>40%–70%</strong>. High humidity above 75% dramatically accelerates fungal leaf spot (Alternaria/Colletotrichum). Maintain natural cross-draft airflow.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl border border-indigo-200 bg-indigo-50/50 space-y-2">
+              <div className="flex items-center gap-2 text-indigo-800 font-bold">
+                <i className="fa-solid fa-sun text-sm"></i>
+                <span>Solar Exposure & CAM</span>
+              </div>
+              <p className="text-slate-600 leading-relaxed text-[11px]">
+                Daytime: <strong>10k–20k lux</strong>. Shield from direct scorching sun. Nighttime darkness is essential for CAM nocturnal CO2 fixation; zero lux at night is healthy.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
     );

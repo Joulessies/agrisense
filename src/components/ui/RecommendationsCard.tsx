@@ -45,48 +45,48 @@ export function RecommendationsCard() {
       const map: Record<string, any> = {
         soilMoisture: isLow
           ? {
-              title: isNight ? "Schedule morning irrigation" : "Manually water your aloe vera",
+              title: isNight ? "Schedule morning manual watering" : "Manually water your aloe vera",
               detail: isNight
-                ? `Soil moisture is low (${s.value}%). Irrigate in the early morning (~8 AM) to avoid nocturnal root fungal risk.`
-                : `Soil moisture is low (${s.value}%). Apply ~1.5 L/m² at the base before noon to reach target moisture.`,
+                ? `Soil moisture is low (${s.value}%). Manually apply water in the early morning (~8 AM) to avoid nocturnal root dampness.`
+                : `Soil moisture is low (${s.value}%). Manually apply ~1.5 L/m² at the base before noon to restore safe root moisture.`,
               icon: "fa-droplet",
             }
           : {
-              title: "Withhold watering",
-              detail: `Soil moisture is high (${s.value}%). Allow substrate to dry out toward ${s.optimal.max}% to prevent root rot.`,
+              title: "Withhold manual watering",
+              detail: `Soil moisture is high (${s.value}%). Allow potting substrate to dry out toward ${s.optimal.max}% to avoid root rot risk.`,
               icon: "fa-droplet-slash",
             },
         temperature: isLow
           ? {
-              title: "Provide thermal shelter",
-              detail: `Temperature is low (${s.value}°C). Close greenhouse curtains or move potted aloe to a warmer microclimate (${s.optimal.min}–${s.optimal.max}°C).`,
+              title: "Provide manual thermal shelter",
+              detail: `Temperature is low (${s.value}°C). Manually close greenhouse flaps or move potted aloe to a warmer microclimate (${s.optimal.min}–${s.optimal.max}°C).`,
               icon: "fa-temperature-arrow-up",
             }
           : {
-              title: "Increase natural ventilation",
-              detail: `Temperature is elevated (${s.value}°C). Open manual vents or position shade cloth to lower temperature to ${s.optimal.max}°C.`,
+              title: "Increase natural ventilation manually",
+              detail: `Temperature is elevated (${s.value}°C). Manually open greenhouse door flaps or position shade cloth to bring temperature down to ${s.optimal.max}°C.`,
               icon: "fa-temperature-arrow-down",
             },
         humidity: isLow
           ? {
-              title: "Dampen surrounding air",
-              detail: `Relative humidity is low (${s.value}%). Lightly mist the ground or foliage perimeter to reach ${s.optimal.min}–${s.optimal.max}%.`,
+              title: "Lightly mist surrounding soil",
+              detail: `Relative humidity is low (${s.value}%). Manually dampen the ground or perimeter walkways to reach ${s.optimal.min}–${s.optimal.max}%.`,
               icon: "fa-cloud-rain",
             }
           : {
-              title: "Improve air circulation",
-              detail: `High humidity (${s.value}%) risks fungal leaf spotting. Promote cross-ventilation around aloe rows.`,
+              title: "Improve manual cross-ventilation",
+              detail: `High humidity (${s.value}%) risks fungal leaf spotting. Promote natural cross-draft air circulation around aloe plants.`,
               icon: "fa-wind",
             },
         light: isLow
           ? {
-              title: "Increase daylight exposure",
-              detail: `Illumination is low (${s.value !== null ? formatNumber(s.value) : "—"} lux). Relocate potted aloe away from heavy shade (target: ${formatNumber(s.optimal.min)}–${formatNumber(s.optimal.max)} lux).`,
+              title: "Relocate plants for sunlight",
+              detail: `Daylight is low (${s.value !== null ? formatNumber(s.value) : "—"} lux). Manually move potted aloe away from dense shade (target: ${formatNumber(s.optimal.min)}–${formatNumber(s.optimal.max)} lux).`,
               icon: "fa-lightbulb",
             }
           : {
-              title: "Deploy 30–50% shade netting",
-              detail: `Sunlight is intense (${s.value !== null ? formatNumber(s.value) : "—"} lux). Shield aloe from midday sunburn to prevent red/brown leaf tips.`,
+              title: "Deploy 30–50% shade netting manually",
+              detail: `Sunlight is intense (${s.value !== null ? formatNumber(s.value) : "—"} lux). Manually unroll overhead shade netting to protect foliage from sunburn.`,
               icon: "fa-cloud-sun",
             },
       };

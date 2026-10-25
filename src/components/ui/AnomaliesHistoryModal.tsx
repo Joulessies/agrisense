@@ -69,7 +69,6 @@ export function AnomaliesHistoryModal({
           });
           setAnomalies(mapped);
         } else {
-          // Provide realistic historical anomalies based on the selected range window
           const fallbackList: AnomalyItem[] = [];
           const now = Date.now();
           const itemsCount = selectedRange === "90d" ? 14 : selectedRange === "30d" ? 6 : 2;
@@ -137,7 +136,6 @@ export function AnomaliesHistoryModal({
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        {/* Header */}
         <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
@@ -163,7 +161,6 @@ export function AnomaliesHistoryModal({
           </button>
         </div>
 
-        {/* Range Selector & Filter Tabs */}
         <div className="px-5 py-3.5 border-b border-slate-100 bg-white flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
             <button
@@ -220,7 +217,6 @@ export function AnomaliesHistoryModal({
           </div>
         </div>
 
-        {/* Content list */}
         <div className="p-5 overflow-y-auto flex-1 space-y-3">
           {loading ? (
             <div className="py-12 text-center text-slate-400 space-y-2">
@@ -284,7 +280,6 @@ export function AnomaliesHistoryModal({
           )}
         </div>
 
-        {/* Footer */}
         <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
           <p className="text-xs text-slate-500">
             Showing {filtered.length} of {anomalies.length} incidents in the last {selectedRange === "90d" ? "90 days" : selectedRange === "30d" ? "30 days" : "7 days"}.

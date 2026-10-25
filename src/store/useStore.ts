@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
-import { showToast } from '@/lib/utils';
+import { showToast, getCalendarDaysDiff } from '@/lib/utils';
 
 
 export type Role = "farmer" | "admin";
@@ -9,7 +9,7 @@ export type AlertTone = "ok" | "info" | "warning" | "critical";
 export interface SensorData {
   id: string;
   label: string;
-  value: number;
+  value: number | null;
   unit: string;
   min: number;
   max: number;
@@ -59,6 +59,13 @@ export interface FarmSettings {
   soilType: 'fast_draining' | 'standard' | 'clay';
 }
 
+export interface PlantInfo {
+  age: number;
+  harvestAge: number;
+  baseAge?: number;
+  lastUpdatedDate?: string;
+}
+
 interface AppState {
   role: Role;
   auth: {
@@ -66,7 +73,7 @@ interface AppState {
     currentUser: { id: string; name: string; email: string; role: Role } | null;
   };
   sensors: Record<string, SensorData>;
-  plant: { age: number; harvestAge: number };
+  plant: PlantInfo;
   activity: ActivityItem[];
   nodes: NodeItem[];
   profiles: ProfileItem[];
@@ -98,7 +105,7 @@ interface AppState {
 
   setCurrentView: (view: string) => void;
   setRole: (role: Role) => void;
-  updateSensor: (id: string, value: number) => void;
+  updateSensor: (id: string, value: number | null) => void;
   dismissAlert: (id: string) => void;
   addActivity: (text: string, tone?: AlertTone) => Promise<void>;
   setSession: (user: any) => void;
@@ -107,7 +114,7 @@ interface AppState {
 
   setNodes: (nodes: NodeItem[]) => void;
   setProfiles: (profiles: ProfileItem[]) => void;
-  setPlant: (plant: { age: number; harvestAge: number }) => void;
+  setPlant: (plant: { age: number; harvestAge: number; baseAge?: number; lastUpdatedDate?: string }) => void;
   setActivity: (activity: ActivityItem[]) => void;
   setThresholds: (thresholds: Array<{ id: string; optimal_min: number; optimal_max: number }>) => void;
 
@@ -133,7 +140,7 @@ const DEFAULT_SENSORS: Record<string, SensorData> = {
   soilMoisture: {
     id: "soilMoisture",
     label: "Soil Moisture",
-    value: 18,
+    value: 26,
     unit: "%",
     min: 0,
     max: 100,
@@ -213,12 +220,20 @@ export const useStore = create<AppState>((set) => ({
   plant: typeof window !== "undefined" && localStorage.getItem("agrisense_plant_info")
     ? (() => {
         try {
-          return JSON.parse(localStorage.getItem("agrisense_plant_info")!);
+          const saved = JSON.parse(localStorage.getItem("agrisense_plant_info")!);
+          const baseAge = Number(saved.baseAge ?? saved.age) || 180;
+          const harvestAge = Number(saved.harvestAge) || 240;
+          const savedDateStr = saved.lastUpdatedDate;
+          if (savedDateStr) {
+            const diffDays = getCalendarDaysDiff(savedDateStr);
+            return { age: baseAge + diffDays, baseAge, harvestAge, lastUpdatedDate: savedDateStr };
+          }
+          return { age: baseAge, baseAge, harvestAge, lastUpdatedDate: new Date().toISOString() };
         } catch {
-          return { age: 180, harvestAge: 240 };
+          return { age: 180, baseAge: 180, harvestAge: 240, lastUpdatedDate: new Date().toISOString() };
         }
       })()
-    : { age: 180, harvestAge: 240 },
+    : { age: 180, baseAge: 180, harvestAge: 240, lastUpdatedDate: new Date().toISOString() },
   criticalAlertSettings: typeof window !== "undefined" && localStorage.getItem("agrisense_critical_settings")
     ? (() => {
         try {
@@ -335,10 +350,13 @@ export const useStore = create<AppState>((set) => ({
   setNodes: (nodes) => set({ nodes }),
   setProfiles: (profiles) => set({ profiles }),
   setPlant: (plant) => {
+    const todayStr = plant.lastUpdatedDate || new Date().toISOString();
+    const baseAge = plant.baseAge !== undefined ? plant.baseAge : plant.age;
+    const updated = { ...plant, baseAge, lastUpdatedDate: todayStr };
     if (typeof window !== "undefined") {
-      localStorage.setItem("agrisense_plant_info", JSON.stringify(plant));
+      localStorage.setItem("agrisense_plant_info", JSON.stringify(updated));
     }
-    set({ plant });
+    set({ plant: updated });
   },
   setActivity: (activity) => set({ activity }),
   setThresholds: (thresholds) => set((state) => {
@@ -370,7 +388,12 @@ export const useStore = create<AppState>((set) => ({
   }),
   setTelemetrySource: (source) => set({ telemetrySource: source }),
 
-  setFarmLocation: (loc) => set({ farmLocation: loc }),
+  setFarmLocation: (loc) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("agrisense_detected_location", JSON.stringify(loc));
+    }
+    set({ farmLocation: loc });
+  },
   setFarmSettings: (settings) => set((state) => ({
     farmSettings: { ...state.farmSettings, ...settings },
   })),
@@ -384,7 +407,7 @@ export const useStore = create<AppState>((set) => ({
         ...state.sensors,
         soilMoisture: {
           ...state.sensors.soilMoisture,
-          value: Math.max(state.sensors.soilMoisture.value, 35),
+          value: Math.max(state.sensors.soilMoisture.value ?? 0, 35),
         },
       },
     }));
@@ -448,20 +471,20 @@ export const useStore = create<AppState>((set) => ({
           } catch {}
         }
 
-        if (data && (data.soilMoisture != null || data.temperature != null)) {
-          if (data.soilMoisture != null) updateSensor('soilMoisture', data.soilMoisture);
-          if (data.temperature != null) updateSensor('temperature', data.temperature);
-          if (data.humidity != null) updateSensor('humidity', data.humidity);
-          if (data.lux != null) updateSensor('light', data.lux);
+        if (data && (data.soilMoisture != null || data.temperature != null || data.dht_error)) {
+          updateSensor('soilMoisture', data.soilMoisture ?? null);
+          updateSensor('temperature', data.dht_error ? null : (data.temperature ?? null));
+          updateSensor('humidity', data.dht_error ? null : (data.humidity ?? null));
+          updateSensor('light', data.lux ?? null);
 
           lanSuccess = true;
 
           supabase.from('sensor_readings').insert([{
             device_id: data.device_id || 'agrisense-lan',
-            soil_moisture: data.soilMoisture,
-            temperature: data.temperature,
-            humidity: data.humidity,
-            lux: data.lux,
+            soil_moisture: data.soilMoisture ?? null,
+            temperature: data.dht_error ? null : (data.temperature ?? null),
+            humidity: data.dht_error ? null : (data.humidity ?? null),
+            lux: data.lux ?? null,
           }]).then();
         }
       } catch {}
@@ -481,18 +504,42 @@ export const useStore = create<AppState>((set) => ({
           supabase.from('nodes').select('*').order('id')
         ]);
 
-        if (plantData) setPlant({ age: plantData.age, harvestAge: plantData.harvest_age });
+        if (plantData) {
+          const dbAge = Number(plantData.age) || 180;
+          const dbHarvestAge = Number(plantData.harvest_age) || 240;
+          const localStr = typeof window !== "undefined" ? localStorage.getItem("agrisense_plant_info") : null;
+          if (localStr) {
+            try {
+              const local = JSON.parse(localStr);
+              if (local.lastUpdatedDate) {
+                const diffDays = getCalendarDaysDiff(local.lastUpdatedDate);
+                const effectiveBase = Number(local.baseAge ?? local.age) || dbAge;
+                const currentAge = effectiveBase + diffDays;
+                setPlant({ age: currentAge, baseAge: effectiveBase, harvestAge: Number(local.harvestAge) || dbHarvestAge, lastUpdatedDate: local.lastUpdatedDate });
+                if (diffDays > 0 && currentAge !== dbAge) {
+                  supabase.from('plant_info').update({ age: currentAge, harvest_age: Number(local.harvestAge) || dbHarvestAge }).eq('id', 1).then(() => {});
+                }
+              } else {
+                setPlant({ age: Number(local.age) || dbAge, baseAge: Number(local.age) || dbAge, harvestAge: Number(local.harvestAge) || dbHarvestAge });
+              }
+            } catch {
+              setPlant({ age: dbAge, baseAge: dbAge, harvestAge: dbHarvestAge });
+            }
+          } else {
+            setPlant({ age: dbAge, baseAge: dbAge, harvestAge: dbHarvestAge });
+          }
+        }
         if (activityData) setActivity(activityData);
         if (nodesData) setNodes(nodesData);
 
         if (readingsData && readingsData.length > 0) {
           const r = readingsData[0];
           if (!lanSuccess) {
-            if (r.soil_moisture != null) updateSensor('soilMoisture', r.soil_moisture);
-            if (r.temperature != null) updateSensor('temperature', r.temperature);
-            if (r.humidity != null) updateSensor('humidity', r.humidity);
+            updateSensor('soilMoisture', r.soil_moisture ?? null);
+            updateSensor('temperature', r.temperature ?? null);
+            updateSensor('humidity', r.humidity ?? null);
             const luxVal = r.lux != null ? r.lux : r.light_lux;
-            if (luxVal != null) updateSensor('light', luxVal);
+            updateSensor('light', luxVal ?? null);
           }
           dbSuccess = true;
         }

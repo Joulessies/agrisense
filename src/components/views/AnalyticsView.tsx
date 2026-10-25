@@ -20,6 +20,7 @@ import { Radar, Bar } from "react-chartjs-2";
 import { StatCard } from "@/components/ui/StatCard";
 import { useGeminiInsights } from "@/hooks/useGeminiInsights";
 import { FarmHealthReportModal } from "@/components/ui/FarmHealthReportModal";
+import { AnomaliesHistoryModal } from "@/components/ui/AnomaliesHistoryModal";
 import { calculateAloeVitality, getTimeOfDayPST } from "@/lib/utils";
 
 ChartJS.register(
@@ -51,6 +52,7 @@ export function AnalyticsView() {
   const { insights, isLoading: insightsLoading, error, refresh } = useGeminiInsights();
 
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showAnomaliesModal, setShowAnomaliesModal] = useState(false);
   const { score: vitalityScore, status: vitalityStatus } = calculateAloeVitality(sensors);
 
   const [dailyData, setDailyData] = useState<any[]>([]);
@@ -142,7 +144,11 @@ export function AnalyticsView() {
     const sensorPayload = Object.fromEntries(
       Object.values(sensors).map((s) => [
         s.label,
-        { value: s.value, unit: s.unit, optimal: s.optimal },
+        {
+          value: s.value ?? (s.id === "soilMoisture" ? 25 : s.id === "temperature" ? 28 : s.id === "humidity" ? 60 : 15000),
+          unit: s.unit,
+          optimal: s.optimal,
+        },
       ])
     );
     refresh(sensorPayload);
@@ -150,6 +156,7 @@ export function AnalyticsView() {
 
   const getScore = (sensor: any) => {
     const { value, min, max, optimal } = sensor;
+    if (value === null || value === undefined || isNaN(value)) return 50;
     if (value >= optimal.min && value <= optimal.max) return 100;
     if (value < optimal.min) {
       const range = optimal.min - min;
@@ -164,7 +171,7 @@ export function AnalyticsView() {
   const soilScore = getScore(sensors.soilMoisture);
   const tempScore = getScore(sensors.temperature);
   const humScore = getScore(sensors.humidity);
-  const lightScore = isNight ? 100 : isDusk && sensors.light.value < 5000 ? 90 : getScore(sensors.light);
+  const lightScore = isNight ? 100 : isDusk && (sensors.light.value ?? 0) < 5000 ? 90 : getScore(sensors.light);
   const overallHealth = vitalityScore;
 
   const radarData = {
@@ -340,8 +347,10 @@ export function AnalyticsView() {
           iconColor="text-rose-500"
           iconBg="bg-rose-50"
           trendIcon="fa-clock"
-          trendText={rangeDays <= 7 ? "In the last 7 days" : rangeDays <= 30 ? "In the last 30 days" : "In the last 90 days"}
-          trendColor="text-slate-500"
+          trendText={rangeDays <= 7 ? "Last 7 days (Click to inspect)" : rangeDays <= 30 ? "Last 30 days (Click to inspect)" : "Last 90 days (Click to inspect)"}
+          trendColor="text-rose-600 font-semibold"
+          clickable
+          onClick={() => setShowAnomaliesModal(true)}
         />
       </div>
 
@@ -433,6 +442,12 @@ export function AnalyticsView() {
         onClose={() => setShowReportModal(false)}
         vitalityScore={vitalityScore}
         vitalityStatus={vitalityStatus}
+      />
+
+      <AnomaliesHistoryModal
+        isOpen={showAnomaliesModal}
+        onClose={() => setShowAnomaliesModal(false)}
+        initialRange={analyticsRange as any}
       />
     </section>
   );

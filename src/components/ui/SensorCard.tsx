@@ -8,7 +8,8 @@ export function SensorCard({ sensor }: { sensor: SensorData }) {
   const { realtimeStatus } = useStore();
   const badge = getStatusBadge(sensor);
   const status = getStatus(sensor);
-  const pct = clamp(((sensor.value - sensor.min) / (sensor.max - sensor.min)) * 100, 2, 100);
+  const isDisconnected = sensor.value === null || sensor.value === undefined || isNaN(sensor.value);
+  const pct = isDisconnected || sensor.value === null ? 0 : clamp(((sensor.value - sensor.min) / (sensor.max - sensor.min)) * 100, 2, 100);
 
   const [isUpdating, setIsUpdating] = useState(false);
   const prevValue = useRef(sensor.value);
@@ -23,8 +24,9 @@ export function SensorCard({ sensor }: { sensor: SensorData }) {
   }, [sensor.value]);
 
   let barClass = sensor.barColor;
-  if (status === "low") barClass = "bg-amber-400";
-  if (status === "high") barClass = "bg-rose-400";
+  if (isDisconnected) barClass = "bg-slate-200";
+  else if (status === "low") barClass = "bg-amber-400";
+  else if (status === "high") barClass = "bg-rose-400";
 
   const { num, unit } = formatSensorValue(sensor);
   const optMin = formatNumber(sensor.optimal.min, sensor.decimals);
@@ -58,10 +60,14 @@ export function SensorCard({ sensor }: { sensor: SensorData }) {
       <p className="mt-4 text-xs text-slate-500 uppercase tracking-wide">{sensor.label}</p>
       <p
         className={`mt-1 text-3xl font-semibold sensor-value transition-colors duration-300 ${
-          isUpdating ? "text-emerald-600 font-bold" : "text-slate-900"
+          isDisconnected
+            ? "text-slate-400 font-normal tracking-wider"
+            : isUpdating
+            ? "text-emerald-600 font-bold"
+            : "text-slate-900"
         }`}
       >
-        {num}<span className="text-lg text-slate-400 font-medium">{unit}</span>
+        {num}{unit && <span className="text-lg text-slate-400 font-medium">{unit}</span>}
       </p>
       <p className="mt-1 text-xs text-slate-500">
         Optimal: {optMin}–{optMax}{sensor.unit === "lux" ? " lux" : sensor.unit}

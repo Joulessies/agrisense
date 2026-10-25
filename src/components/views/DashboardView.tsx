@@ -27,7 +27,8 @@ export function DashboardView() {
   const userName = auth.currentUser?.name?.split(" ")[0] || "User";
   const activeNodes = nodes.filter((n) => n.online).length;
 
-  const outOfRangeCount = Object.values(sensors).filter((s) => getStatus(s) !== "ok").length;
+  const disconnectedSensors = Object.values(sensors).filter((s) => s.value === null || getStatus(s) === "disconnected");
+  const outOfRangeCount = Object.values(sensors).filter((s) => getStatus(s) !== "ok" && getStatus(s) !== "disconnected").length;
 
   const [showCareMatrix, setShowCareMatrix] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -69,6 +70,37 @@ export function DashboardView() {
           </button>
         </div>
       </div>
+
+      {disconnectedSensors.length > 0 && (
+        <div className="bg-rose-50 border-2 border-rose-300 rounded-2xl p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-rose-950 shadow-sm animate-in fade-in duration-300">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <i className="fa-solid fa-plug-circle-xmark text-lg"></i>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="text-sm font-bold text-rose-900">
+                  Hardware Sensor Offline: {disconnectedSensors.map((s) => s.label).join(", ")}
+                </h4>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider bg-rose-200 text-rose-800 px-2 py-0.5 rounded-full">
+                  Disconnected
+                </span>
+              </div>
+              <p className="text-xs text-rose-800 mt-0.5">
+                The ESP32 is not receiving telemetry from this sensor. Value is rendered as &ldquo;—&rdquo; (offline). Check jumper wires on ESP32 breadboard (DHT22 on Pin 4, BH1750 I2C, Soil ADC Pin 34).
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+            <button
+              onClick={() => setCurrentView("sensors")}
+              className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <i className="fa-solid fa-microchip text-xs"></i> Check Node Pinout
+            </button>
+          </div>
+        </div>
+      )}
 
       {role !== "admin" && (
         <div className="bg-gradient-to-r from-emerald-700 via-agri-600 to-teal-600 rounded-2xl p-6 text-white shadow-lg">

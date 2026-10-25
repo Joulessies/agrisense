@@ -55,10 +55,10 @@ export function PredictionsView() {
   const prediction = useMemo(() => {
     if (!weather) return null;
     return predictCropOutcomes(
-      sensors.soilMoisture.value,
-      sensors.temperature.value,
-      sensors.humidity.value,
-      sensors.light.value,
+      sensors.soilMoisture.value ?? 25,
+      sensors.temperature.value ?? 28,
+      sensors.humidity.value ?? 60,
+      sensors.light.value ?? 15000,
       weather,
       farmSettings,
       manualWateringDays
@@ -97,10 +97,10 @@ export function PredictionsView() {
         body: JSON.stringify({
           location: farmLocation,
           currentSensors: {
-            soilMoisture: sensors.soilMoisture.value,
-            temperature: sensors.temperature.value,
-            humidity: sensors.humidity.value,
-            light: sensors.light.value,
+            soilMoisture: sensors.soilMoisture.value ?? 25,
+            temperature: sensors.temperature.value ?? 28,
+            humidity: sensors.humidity.value ?? 60,
+            light: sensors.light.value ?? 15000,
           },
           weatherSummary: weather.summary,
           forecastDays: weather.forecast,
@@ -181,6 +181,15 @@ export function PredictionsView() {
     interaction: {
       mode: "index",
       intersect: false,
+    },
+    onClick: (_e: any, elements: any[]) => {
+      if (elements && elements.length > 0) {
+        const idx = elements[0].index;
+        setSelectedDayIdx(idx);
+        setTimeout(() => {
+          document.getElementById("day-inspection-panel")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }, 50);
+      }
     },
     plugins: {
       legend: {
@@ -513,7 +522,12 @@ export function PredictionsView() {
                 <button
                   type="button"
                   key={d.date}
-                  onClick={() => setSelectedDayIdx(idx)}
+                  onClick={() => {
+                    setSelectedDayIdx(idx);
+                    setTimeout(() => {
+                      document.getElementById("day-inspection-panel")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                    }, 50);
+                  }}
                   className={`rounded-2xl p-4 text-left border transition-all duration-200 flex flex-col justify-between relative overflow-hidden cursor-pointer ${
                     isSelected
                       ? "bg-white border-emerald-500 shadow-md ring-2 ring-emerald-500/25 -translate-y-1"
@@ -596,7 +610,11 @@ export function PredictionsView() {
                         <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
                           Bukas
                         </span>
-                      ) : null}
+                      ) : (
+                        <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          Sa susunod na {selectedDay.dayIndex} araw ({new Date(selectedDay.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short" })})
+                        </span>
+                      )}
                     </div>
                     <h3 className="text-base font-bold text-slate-900 mt-1 flex items-center gap-2">
                       <span>Day {selectedDay.dayIndex + 1} — {new Date(selectedDay.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</span>

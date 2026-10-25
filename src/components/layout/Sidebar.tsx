@@ -7,7 +7,8 @@ export function Sidebar() {
   const { role, currentView, setCurrentView, sensors, dismissedAlerts, nodes } = useStore();
 
   const activeAlertsCount = Object.values(sensors).filter((s) => {
-    const isOut = s.value < s.optimal.min || s.value > s.optimal.max;
+    const isDisconnected = s.value === null || s.value === undefined || isNaN(s.value);
+    const isOut = isDisconnected || (s.value !== null && (s.value < s.optimal.min || s.value > s.optimal.max));
     return isOut && !dismissedAlerts.has(s.id);
   }).length;
 

@@ -53,7 +53,10 @@ export interface WeatherData {
 }
 
 export const PHILIPPINES_FARM_LOCATIONS: WeatherLocation[] = [
-  { name: 'Manila', country: 'PH', lat: 14.5995, lon: 120.9842, region: 'NCR / Central Luzon' },
+  { name: 'Quezon City', country: 'PH', lat: 14.6760, lon: 121.0437, region: 'NCR - Quezon City' },
+  { name: 'Zambales (Iba)', country: 'PH', lat: 15.3261, lon: 119.9822, region: 'Central Luzon - Farm Partner' },
+  { name: 'Zambales (San Antonio)', country: 'PH', lat: 14.9547, lon: 120.0886, region: 'Central Luzon - Zambales Coast' },
+  { name: 'Manila', country: 'PH', lat: 14.5995, lon: 120.9842, region: 'NCR' },
   { name: 'Benguet (La Trinidad)', country: 'PH', lat: 16.4560, lon: 120.5872, region: 'Cordillera Highlands (Cool)' },
   { name: 'Tagaytay', country: 'PH', lat: 14.1153, lon: 120.9621, region: 'Cavite Highlands' },
   { name: 'Nueva Ecija (Cabanatuan)', country: 'PH', lat: 15.4865, lon: 120.9734, region: 'Central Luzon Plains' },

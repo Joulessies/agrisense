@@ -77,15 +77,22 @@ export function AloeVitalityCard({ onOpenMatrix, onOpenReport }: AloeVitalityCar
               <span className="text-2xl font-black text-slate-900 leading-none">
                 {compositeScore}%
               </span>
-              <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-500 mt-0.5">
-                Vitality
+              <span className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-600 mt-0.5 flex items-center gap-1 justify-center">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Live Realtime
               </span>
             </div>
           </div>
 
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-base font-bold text-slate-900">Aloe Vera Vitality Index</h3>
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                Real-Time Aloe Vitality Index
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200/80 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping inline-block"></span>
+                  Live
+                </span>
+              </h3>
               <span className={`text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${statusColor}`}>
                 {statusLabel}
               </span>
@@ -103,8 +110,8 @@ export function AloeVitalityCard({ onOpenMatrix, onOpenReport }: AloeVitalityCar
 
             <p className="text-xs text-slate-500 max-w-md leading-relaxed">
               {isNight
-                ? "Real-time nighttime composite score for Aloe barbadensis Miller. Low lux penalty is excluded as stomata open for CAM CO2 absorption during darkness."
-                : "Real-time physiological composite score for Aloe barbadensis Miller, dynamically weighted across root zone moisture, ambient thermal range, humidity, and CAM light exposure."}
+                ? "Live real-time nighttime composite score for Aloe barbadensis Miller. Low lux penalty is excluded as stomata open for CAM CO2 absorption during darkness."
+                : "Live real-time physiological composite score for Aloe barbadensis Miller, dynamically calculated from active sensor readings."}
             </p>
 
             <div className="flex flex-wrap items-center gap-2 pt-1">

@@ -12,6 +12,9 @@ export function formatNumber(value: number, decimals = 0) {
 }
 
 export function formatSensorValue(s: SensorData) {
+  if (s.value === null || s.value === undefined || isNaN(s.value)) {
+    return { num: "—", unit: "" };
+  }
   const num = formatNumber(s.value, s.decimals);
   const unit = s.unit === "lux" ? " lux" : s.unit;
   return { num, unit };
@@ -55,6 +58,8 @@ export function getTimeOfDayPST(date: Date = new Date()): {
 
 export function getStatus(sensor: SensorData, date: Date = new Date()) {
   const v = sensor.value;
+  if (v === null || v === undefined || isNaN(v)) return "disconnected";
+
   const { min, max } = sensor.optimal;
 
   // Adaptive handling for light intensity (BH1750) based on Philippine Standard Time
@@ -79,6 +84,17 @@ export function getStatus(sensor: SensorData, date: Date = new Date()) {
 }
 
 export function getStatusBadge(sensor: SensorData, date: Date = new Date()) {
+  const s = getStatus(sensor, date);
+
+  if (s === "disconnected") {
+    return {
+      label: "Disconnected",
+      icon: "fa-plug-circle-xmark",
+      bg: "bg-rose-100",
+      text: "text-rose-700",
+    };
+  }
+
   const { isNight, isDusk } = getTimeOfDayPST(date);
 
   if (sensor.id === "light" || sensor.unit === "lux") {
@@ -100,7 +116,6 @@ export function getStatusBadge(sensor: SensorData, date: Date = new Date()) {
     }
   }
 
-  const s = getStatus(sensor, date);
   if (s === "ok") {
     return {
       label: "Optimal",
@@ -256,4 +271,26 @@ export function showToast(message: string, tone: "ok" | "info" | "warning" | "er
     }, 250);
   }, 3500);
 }
+
+/**
+ * Calculates calendar days elapsed between a reference timestamp and now.
+ * Compares local calendar midnights (00:00:00), ensuring that when the clock hits
+ * 12:00 AM midnight (next day), exactly +1 day is added regardless of exact hours.
+ */
+export function getCalendarDaysDiff(fromDateStr?: string | Date | null, toDate: Date = new Date()): number {
+  if (!fromDateStr) return 0;
+  try {
+    const from = new Date(fromDateStr);
+    if (isNaN(from.getTime())) return 0;
+
+    const fromMidnight = new Date(from.getFullYear(), from.getMonth(), from.getDate()).getTime();
+    const toMidnight = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate()).getTime();
+
+    const diffMs = toMidnight - fromMidnight;
+    return Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24)));
+  } catch {
+    return 0;
+  }
+}
+
 

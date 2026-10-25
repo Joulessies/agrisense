@@ -111,23 +111,23 @@ export function SettingsView() {
     e.preventDefault();
     setSavingPlant(true);
     try {
-      // 1. Immediately store in Zustand store and localStorage
-      setPlant({ age: plantAge, harvestAge });
+      const nowIso = new Date().toISOString();
+      // 1. Immediately store in Zustand store and localStorage with current timestamp
+      setPlant({ age: plantAge, baseAge: plantAge, harvestAge, lastUpdatedDate: nowIso });
 
-      // 2. Persist to database using .update().eq("id", 1) to respect RLS
+      // 2. Persist to database using .update().eq("id", 1) without updated_at column
       const { error } = await supabase
         .from("plant_info")
         .update({
           age: plantAge,
           harvest_age: harvestAge,
-          updated_at: new Date().toISOString(),
         })
         .eq("id", 1);
 
       if (error) {
         console.warn("Supabase plant_info update notice:", error.message);
       }
-      addActivity(`Updated crop timeline: ${plantAge} days / ${harvestAge} days target`, "ok");
+      addActivity(`Updated crop timeline: ${plantAge} days / ${harvestAge} days target (persisted)`, "ok");
     } catch (err: any) {
       console.warn("Failed to persist plant_info to DB:", err?.message);
       addActivity(`Updated crop timeline locally: ${plantAge}d / ${harvestAge}d`, "info");

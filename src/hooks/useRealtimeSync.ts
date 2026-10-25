@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useStore } from '@/store/useStore';
+import { getCalendarDaysDiff } from '@/lib/utils';
 
 interface SensorReading {
   id: string | number;
@@ -69,16 +70,40 @@ export function useRealtimeSync() {
 
         if (nodesData) setNodes(nodesData);
         if (profilesData) setProfiles(profilesData);
-        if (plantData) setPlant({ age: plantData.age, harvestAge: plantData.harvest_age });
+        if (plantData) {
+          const dbAge = Number(plantData.age) || 180;
+          const dbHarvestAge = Number(plantData.harvest_age) || 240;
+          const localStr = typeof window !== "undefined" ? localStorage.getItem("agrisense_plant_info") : null;
+          if (localStr) {
+            try {
+              const local = JSON.parse(localStr);
+              if (local.lastUpdatedDate) {
+                const diffDays = getCalendarDaysDiff(local.lastUpdatedDate);
+                const effectiveBase = Number(local.baseAge ?? local.age) || dbAge;
+                const currentAge = effectiveBase + diffDays;
+                setPlant({ age: currentAge, baseAge: effectiveBase, harvestAge: Number(local.harvestAge) || dbHarvestAge, lastUpdatedDate: local.lastUpdatedDate });
+                if (diffDays > 0 && currentAge !== dbAge) {
+                  supabase.from('plant_info').update({ age: currentAge, harvest_age: Number(local.harvestAge) || dbHarvestAge }).eq('id', 1).then(() => {});
+                }
+              } else {
+                setPlant({ age: Number(local.age) || dbAge, baseAge: Number(local.age) || dbAge, harvestAge: Number(local.harvestAge) || dbHarvestAge });
+              }
+            } catch {
+              setPlant({ age: dbAge, baseAge: dbAge, harvestAge: dbHarvestAge });
+            }
+          } else {
+            setPlant({ age: dbAge, baseAge: dbAge, harvestAge: dbHarvestAge });
+          }
+        }
         if (activityData) setActivity(activityData);
         if (settingsData) setThresholds(settingsData);
         if (readingsData && readingsData.length > 0) {
           const row = readingsData[0] as SensorReading;
           lastKnownReadingId.current = row.id;
-          if (row.soil_moisture != null) updateSensor('soilMoisture', row.soil_moisture);
-          if (row.temperature != null) updateSensor('temperature', row.temperature);
-          if (row.humidity != null) updateSensor('humidity', row.humidity);
-          if (row.lux != null) updateSensor('light', row.lux);
+          updateSensor('soilMoisture', row.soil_moisture ?? null);
+          updateSensor('temperature', row.temperature ?? null);
+          updateSensor('humidity', row.humidity ?? null);
+          updateSensor('light', row.lux ?? null);
           checkCriticalAlerts(row.soil_moisture, row.temperature);
 
           const isHardware = Boolean(
@@ -105,10 +130,10 @@ export function useRealtimeSync() {
 
     const handleNewReading = (row: SensorReading) => {
       lastKnownReadingId.current = row.id;
-      if (row.soil_moisture != null) updateSensor('soilMoisture', row.soil_moisture);
-      if (row.temperature != null) updateSensor('temperature', row.temperature);
-      if (row.humidity != null) updateSensor('humidity', row.humidity);
-      if (row.lux != null) updateSensor('light', row.lux);
+      updateSensor('soilMoisture', row.soil_moisture ?? null);
+      updateSensor('temperature', row.temperature ?? null);
+      updateSensor('humidity', row.humidity ?? null);
+      updateSensor('light', row.lux ?? null);
       checkCriticalAlerts(row.soil_moisture, row.temperature);
 
       useStore.getState().incrementPacketCount?.();
@@ -164,9 +189,29 @@ export function useRealtimeSync() {
         supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(30)
           .then(({ data }) => data && setActivity(data));
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'plant_info' }, () => {
-        supabase.from('plant_info').select('*').limit(1).single()
-          .then(({ data }) => data && setPlant({ age: data.age, harvestAge: data.harvest_age }));
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'plant_info' }, (payload: any) => {
+        const newData = payload?.new;
+        if (newData) {
+          const dbAge = Number(newData.age) || 180;
+          const dbHarvest = Number(newData.harvest_age) || 240;
+          const localStr = typeof window !== "undefined" ? localStorage.getItem("agrisense_plant_info") : null;
+          let lastDate = new Date().toISOString();
+          let baseAge = dbAge;
+          if (localStr) {
+            try {
+              const l = JSON.parse(localStr);
+              if (l.lastUpdatedDate) lastDate = l.lastUpdatedDate;
+              if (l.baseAge !== undefined) baseAge = Number(l.baseAge);
+            } catch {}
+          }
+          const diffDays = getCalendarDaysDiff(lastDate);
+          setPlant({
+            age: baseAge + diffDays,
+            baseAge: baseAge,
+            harvestAge: dbHarvest,
+            lastUpdatedDate: lastDate,
+          });
+        }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sensor_settings' }, () => {
         supabase.from('sensor_settings').select('*').then(({ data }) => data && setThresholds(data));
@@ -236,11 +281,11 @@ export function useRealtimeSync() {
           } catch {}
         }
 
-        if (data && (data.soilMoisture != null || data.temperature != null)) {
-          if (data.soilMoisture != null) updateSensor('soilMoisture', data.soilMoisture);
-          if (data.temperature != null) updateSensor('temperature', data.temperature);
-          if (data.humidity != null) updateSensor('humidity', data.humidity);
-          if (data.lux != null) updateSensor('light', data.lux);
+        if (data && (data.soilMoisture != null || data.temperature != null || data.dht_error)) {
+          updateSensor('soilMoisture', data.soilMoisture ?? null);
+          updateSensor('temperature', data.dht_error ? null : (data.temperature ?? null));
+          updateSensor('humidity', data.dht_error ? null : (data.humidity ?? null));
+          updateSensor('light', data.lux ?? null);
           checkCriticalAlerts(data.soilMoisture, data.temperature);
 
           useStore.getState().incrementPacketCount?.();
@@ -269,6 +314,41 @@ export function useRealtimeSync() {
 
     const lanInterval = setInterval(pollLan, 2500);
 
+    // Midnight auto-turnover ticker: checks every 10 seconds if a new calendar day has started
+    const checkMidnightTurnover = () => {
+      const currentPlant = useStore.getState().plant;
+      const localStr = typeof window !== "undefined" ? localStorage.getItem("agrisense_plant_info") : null;
+      if (localStr) {
+        try {
+          const local = JSON.parse(localStr);
+          if (local.lastUpdatedDate) {
+            const diffDays = getCalendarDaysDiff(local.lastUpdatedDate);
+            const baseAge = Number(local.baseAge ?? local.age) || 180;
+            const expectedAge = baseAge + diffDays;
+            if (expectedAge !== currentPlant.age) {
+              setPlant({
+                age: expectedAge,
+                baseAge: baseAge,
+                harvestAge: currentPlant.harvestAge,
+                lastUpdatedDate: local.lastUpdatedDate,
+              });
+              useStore.getState().addActivity(
+                `Midnight harvest milestone: Aloe vera crop reached Day ${expectedAge} of ${currentPlant.harvestAge} days`,
+                "ok"
+              );
+              supabase
+                .from("plant_info")
+                .update({ age: expectedAge, harvest_age: currentPlant.harvestAge })
+                .eq("id", 1)
+                .then(() => {});
+            }
+          }
+        } catch {}
+      }
+    };
+
+    const midnightInterval = setInterval(checkMidnightTurnover, 10000);
+
     const watchdogInterval = setInterval(() => {
       const { lastSync } = useStore.getState();
       if (lastSync) {
@@ -282,6 +362,7 @@ export function useRealtimeSync() {
     return () => {
       clearInterval(supabaseInterval);
       clearInterval(lanInterval);
+      clearInterval(midnightInterval);
       clearInterval(watchdogInterval);
       channelsRef.current.forEach(channel => {
         supabase.removeChannel(channel);

@@ -14,7 +14,8 @@ export function HarvestCard() {
 
   const handleHarvest = async () => {
     const newAge = Math.max(0, age - 180);
-    setPlant({ age: newAge, harvestAge });
+    const nowIso = new Date().toISOString();
+    setPlant({ age: newAge, baseAge: newAge, harvestAge, lastUpdatedDate: nowIso });
     addActivity(`Recorded Aloe vera mature leaf harvest at age ${age} days`, "ok");
     try {
       await supabase.from("plant_info").update({ age: newAge, harvest_age: harvestAge }).eq("id", 1);
@@ -46,7 +47,15 @@ export function HarvestCard() {
             <p className={`text-lg font-semibold ${ready ? "text-agri-700" : "text-slate-700"}`}>
               {ready ? "Ready to Harvest" : "Not Ready"}
             </p>
-            <p className="text-xs text-slate-500">Plant age: {age} days</p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <p className="text-xs text-slate-500">Plant age: <strong className="text-slate-700">{age} days</strong></p>
+              <span
+                className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-full font-medium"
+                title="Awtomatikong magdadagdag ng +1 day pagsapit ng 12:00 AM Midnight"
+              >
+                +1 day @ 12 AM
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -65,7 +74,9 @@ export function HarvestCard() {
           ></div>
         </div>
         <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-100">
-          <p className="text-xs text-slate-500">Harvest target: {harvestAge}+ days</p>
+          <p className="text-xs text-slate-500">
+            Target: {harvestAge}+ days <span className="text-[10px] text-slate-400">• +1 @ 12:00 AM</span>
+          </p>
           {ready ? (
             <button
               onClick={handleHarvest}
@@ -86,3 +97,4 @@ export function HarvestCard() {
     </div>
   );
 }
+

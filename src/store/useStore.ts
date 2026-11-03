@@ -129,6 +129,14 @@ interface AppState {
   audioAlertsEnabled: boolean;
   setAudioAlertsEnabled: (enabled: boolean) => void;
   playAlertChime: (type?: "info" | "critical" | "test") => void;
+  emailAlertsEnabled: boolean;
+  setEmailAlertsEnabled: (enabled: boolean) => void;
+  moderatorEmail: string;
+  setModeratorEmail: (email: string) => void;
+  emailRecoveryEnabled: boolean;
+  setEmailRecoveryEnabled: (enabled: boolean) => void;
+  emailDisconnectEnabled: boolean;
+  setEmailDisconnectEnabled: (enabled: boolean) => void;
 
   livePacketCount: number;
   streamLatency: number | null;
@@ -575,6 +583,38 @@ export const useStore = create<AppState>((set) => ({
       localStorage.setItem("agrisense_audio_alerts", enabled ? "true" : "false");
     }
     set({ audioAlertsEnabled: enabled });
+  },
+
+    emailAlertsEnabled: typeof window !== "undefined" ? localStorage.getItem("agrisense_email_alerts") !== "false" : true,
+  setEmailAlertsEnabled: (enabled: boolean) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("agrisense_email_alerts", enabled ? "true" : "false");
+    }
+    set({ emailAlertsEnabled: enabled });
+  },
+
+  moderatorEmail: typeof window !== "undefined" ? (localStorage.getItem("agrisense_moderator_email") || "moderator@agrisense.com") : "moderator@agrisense.com",
+  setModeratorEmail: (email: string) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("agrisense_moderator_email", email);
+    }
+    set({ moderatorEmail: email });
+  },
+
+  emailRecoveryEnabled: typeof window !== "undefined" ? localStorage.getItem("agrisense_email_recovery") !== "false" : true,
+  setEmailRecoveryEnabled: (enabled: boolean) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("agrisense_email_recovery", enabled ? "true" : "false");
+    }
+    set({ emailRecoveryEnabled: enabled });
+  },
+
+  emailDisconnectEnabled: typeof window !== "undefined" ? localStorage.getItem("agrisense_email_disconnect") !== "false" : true,
+  setEmailDisconnectEnabled: (enabled: boolean) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("agrisense_email_disconnect", enabled ? "true" : "false");
+    }
+    set({ emailDisconnectEnabled: enabled });
   },
 
   playAlertChime: (type = "info") => {

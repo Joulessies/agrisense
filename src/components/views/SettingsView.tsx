@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useStore } from "@/store/useStore";
 import { supabase } from "@/lib/supabase";
 import { showToast } from "@/lib/utils";
+import { alertNotificationManager, AlertHistoryRecord } from "@/services/alertNotificationManager";
 
 const BASELINE_PRESET = {
   label: "Standard Aloe Vera Baseline",
@@ -29,6 +30,14 @@ export function SettingsView() {
     playAlertChime,
     criticalAlertSettings,
     setCriticalAlertSettings,
+    emailAlertsEnabled,
+    setEmailAlertsEnabled,
+    moderatorEmail,
+    setModeratorEmail,
+    emailRecoveryEnabled,
+    setEmailRecoveryEnabled,
+    emailDisconnectEnabled,
+    setEmailDisconnectEnabled,
   } = useStore();
   const isAdmin = role === "admin";
 
@@ -41,6 +50,13 @@ export function SettingsView() {
   const [critTempMax, setCritTempMax] = useState(criticalAlertSettings?.maxTemp ?? 38);
   const [critTempMin, setCritTempMin] = useState(criticalAlertSettings?.minTemp ?? 10);
   const [savingCritical, setSavingCritical] = useState(false);
+
+  // Email Notification & Alert History State
+  const [emailInput, setEmailInput] = useState(moderatorEmail || "moderator@agrisense.com");
+  const [sendingTestEmail, setSendingTestEmail] = useState(false);
+  const [alertHistory, setAlertHistory] = useState<AlertHistoryRecord[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<"all" | "active" | "resolved">("all");
 
   useEffect(() => {
     setLocalPlantAge(plant.age);
@@ -55,6 +71,24 @@ export function SettingsView() {
       setCritTempMin(criticalAlertSettings.minTemp);
     }
   }, [criticalAlertSettings]);
+
+  useEffect(() => {
+    setEmailInput(moderatorEmail || "moderator@agrisense.com");
+  }, [moderatorEmail]);
+
+  const loadHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const records = await alertNotificationManager.getAlertHistory();
+      setAlertHistory(records);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    loadHistory();
+  }, []);
 
   const handleUpdate = async (id: string, field: "optimal_min" | "optimal_max", value: number) => {
     try {
@@ -97,6 +131,7 @@ export function SettingsView() {
       }
 
       addActivity("Restored baseline Aloe Vera sensor thresholds", "ok");
+      showToast("Baseline thresholds restored", "ok");
     } catch (e: any) {
       console.warn("Could not sync preset to DB (cached locally):", e?.message);
     }
@@ -142,13 +177,65 @@ export function SettingsView() {
     setCriticalAlertSettings(updated);
     addActivity(
       `Updated critical hazard thresholds: Moisture <${updated.minSoilMoisture}%, >${updated.maxSoilMoisture}%, Temp >${updated.maxTemp}°C, <${updated.minTemp}°C`,
-      "warning"
+      "ok"
     );
+    showToast("Critical hazard limits saved", "ok");
     setTimeout(() => setSavingCritical(false), 400);
   };
 
+  const handleSaveEmail = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailInput || !emailInput.includes("@")) {
+      showToast("Please enter a valid email address", "warning");
+      return;
+    }
+    setModeratorEmail(emailInput);
+    addActivity(`Updated moderator alert email to ${emailInput}`, "ok");
+    showToast(`Moderator email saved: ${emailInput}`, "ok");
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!emailInput || !emailInput.includes("@")) {
+      showToast("Please specify a valid email address first", "warning");
+      return;
+    }
+    setSendingTestEmail(true);
+    try {
+      const res = await alertNotificationManager.dispatchEmail({
+        type: "test",
+        recipient: emailInput,
+        hazardType: "Critical Low Soil Moisture (Drought Test)",
+        currentReading: "8.5%",
+        threshold: `< ${critSoilMin}%`,
+        zone: "Aloe Vera Zone #1",
+      });
+
+      if (res.success) {
+        if (res.simulated) {
+          showToast(`Test email simulated! (Logged in server console)`, "info");
+        } else {
+          showToast(`Test alert email sent to ${emailInput}!`, "ok");
+        }
+        addActivity(`Dispatched test hazard email to ${emailInput}`, "ok");
+      } else {
+        showToast(res.message || "Failed to dispatch test email", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to dispatch test email", "error");
+    } finally {
+      setSendingTestEmail(false);
+      loadHistory();
+    }
+  };
+
+  const filteredHistory = alertHistory.filter((item) => {
+    if (historyFilter === "all") return true;
+    return item.status === historyFilter;
+  });
+
   return (
     <section className="p-8 space-y-6">
+      {/* 1. Optimal Sensor Thresholds */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -164,195 +251,149 @@ export function SettingsView() {
               <button
                 type="button"
                 onClick={handleResetBaseline}
-                className="text-xs font-semibold px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition cursor-pointer flex items-center gap-1.5"
-                title="Reset all thresholds back to standard Aloe Vera defaults"
+                className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
               >
-                <i className="fa-solid fa-rotate-left text-[11px]"></i> Reset Standard Baseline
+                <i className="fa-solid fa-rotate-left text-xs"></i>
+                Restore Aloe Baseline
               </button>
-              <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full shrink-0">
-                <i className="fa-solid fa-pen-to-square mr-1"></i> Edit Mode Active
-              </span>
             </div>
           )}
         </div>
 
-        <div className="px-6 py-3.5 bg-agri-50/60 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <span className="w-2 h-2 rounded-full bg-agri-600"></span>
-            <p className="text-xs font-bold text-agri-900">{BASELINE_PRESET.label}</p>
-            <span className="text-[11px] text-slate-600 hidden sm:inline">— {BASELINE_PRESET.description}</span>
-          </div>
-          <span className="text-[11px] font-medium text-agri-700 bg-white border border-agri-200 px-2.5 py-0.5 rounded-lg shrink-0 self-start sm:self-auto">
-            Editable Values
-          </span>
-        </div>
-
-        <div className="px-6 py-3 divide-y divide-slate-100">
+        <div className="p-6 divide-y divide-slate-100">
           {Object.values(sensors).map((s) => (
             <ThresholdRow key={s.id} s={s} isAdmin={isAdmin} onUpdate={handleUpdate} />
           ))}
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-base font-bold text-slate-900">Crop Cultivation Timeline</h3>
-          <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
-            Persistent & Editable
-          </span>
-        </div>
-        <p className="text-xs text-slate-500 mb-5">
-          Configure current crop growth duration and projected harvest readiness milestones. Persisted locally and synced to the database.
-        </p>
-
-        <form onSubmit={handleSavePlant} className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+      {/* 2. Critical Hazard Alarm Limits */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-              Current Plant Age (Days)
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="1500"
-              value={plantAge}
-              onChange={(e) => setLocalPlantAge(Number(e.target.value))}
-              className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-agri-500/30 bg-white"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-              Target Harvest Age (Days)
-            </label>
-            <input
-              type="number"
-              min="1"
-              max="2000"
-              value={harvestAge}
-              onChange={(e) => setLocalHarvestAge(Number(e.target.value))}
-              className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-agri-500/30 bg-white"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={savingPlant}
-            className="px-5 py-2.5 bg-agri-600 hover:bg-agri-700 disabled:opacity-60 text-white rounded-xl text-sm font-semibold shadow-sm transition cursor-pointer"
-          >
-            {savingPlant ? "Saving…" : "Save Cultivation Timeline"}
-          </button>
-        </form>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-rose-200 shadow-sm p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-              <i className="fa-solid fa-triangle-exclamation text-sm"></i>
-            </div>
-            <div>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
               <h3 className="text-base font-bold text-slate-900">Critical Hazard Alarm Limits</h3>
-              <p className="text-xs text-slate-500">
-                Trigger dual-tone emergency siren alerts when conditions reach hazardous plant thresholds.
-              </p>
             </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Trigger emergency notifications and sirens when conditions breach hazardous biological thresholds.
+            </p>
           </div>
           <button
             type="button"
             onClick={() => playAlertChime("critical")}
             className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
           >
-            <i className="fa-solid fa-volume-high text-xs"></i> Test Urgent Siren Tone
+            <i className="fa-solid fa-volume-high text-xs"></i>
+            Test Siren
           </button>
         </div>
 
-        <form onSubmit={handleSaveCritical} className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
-            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-              Dehydration Hazard
-            </label>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-rose-600 font-bold">&lt;</span>
-              <input
-                type="number"
-                min="1"
-                max="30"
-                value={critSoilMin}
-                onChange={(e) => setCritSoilMin(Number(e.target.value))}
-                disabled={!isAdmin}
-                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500/30"
-              />
-              <span className="text-xs text-slate-500 font-mono">%</span>
+        <form onSubmit={handleSaveCritical} className="p-6 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-xl border border-rose-100 bg-rose-50/40 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-rose-800">
+                <span className="flex items-center gap-1.5">
+                  <i className="fa-solid fa-droplet text-xs"></i> Dehydration Hazard
+                </span>
+                <span className="text-[10px] uppercase tracking-wider bg-rose-200 text-rose-800 px-1.5 py-0.5 rounded">
+                  Min Moisture
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500">Aloe vera root desiccation trigger limit.</p>
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="number"
+                  min="1"
+                  max="30"
+                  disabled={!isAdmin}
+                  value={critSoilMin}
+                  onChange={(e) => setCritSoilMin(Number(e.target.value))}
+                  className="w-full px-3 py-1.5 bg-white border border-rose-200 rounded-lg text-sm font-bold text-slate-800 font-mono disabled:opacity-75 focus:outline-none focus:ring-2 focus:ring-rose-500/30"
+                />
+                <span className="text-xs font-bold text-slate-500">%</span>
+              </div>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1">Severe drought & leaf shrinkage</p>
-          </div>
 
-          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
-            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-              Root Rot Hazard
-            </label>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-rose-600 font-bold">&gt;</span>
-              <input
-                type="number"
-                min="45"
-                max="90"
-                value={critSoilMax}
-                onChange={(e) => setCritSoilMax(Number(e.target.value))}
-                disabled={!isAdmin}
-                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500/30"
-              />
-              <span className="text-xs text-slate-500 font-mono">%</span>
+            <div className="p-4 rounded-xl border border-rose-100 bg-rose-50/40 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-rose-800">
+                <span className="flex items-center gap-1.5">
+                  <i className="fa-solid fa-water text-xs"></i> Root Rot Hazard
+                </span>
+                <span className="text-[10px] uppercase tracking-wider bg-rose-200 text-rose-800 px-1.5 py-0.5 rounded">
+                  Max Moisture
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500">Substrate asphyxiation & fungal decay trigger limit.</p>
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="number"
+                  min="40"
+                  max="100"
+                  disabled={!isAdmin}
+                  value={critSoilMax}
+                  onChange={(e) => setCritSoilMax(Number(e.target.value))}
+                  className="w-full px-3 py-1.5 bg-white border border-rose-200 rounded-lg text-sm font-bold text-slate-800 font-mono disabled:opacity-75 focus:outline-none focus:ring-2 focus:ring-rose-500/30"
+                />
+                <span className="text-xs font-bold text-slate-500">%</span>
+              </div>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1">Over-saturation / fungal rot</p>
-          </div>
 
-          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
-            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-              Extreme Heat Stress
-            </label>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-rose-600 font-bold">&gt;</span>
-              <input
-                type="number"
-                min="30"
-                max="50"
-                value={critTempMax}
-                onChange={(e) => setCritTempMax(Number(e.target.value))}
-                disabled={!isAdmin}
-                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500/30"
-              />
-              <span className="text-xs text-slate-500 font-mono">°C</span>
+            <div className="p-4 rounded-xl border border-amber-100 bg-amber-50/40 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-amber-800">
+                <span className="flex items-center gap-1.5">
+                  <i className="fa-solid fa-temperature-arrow-up text-xs"></i> Heat Spike Hazard
+                </span>
+                <span className="text-[10px] uppercase tracking-wider bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded">
+                  Max Temp
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500">Parenchyma foliage burn & collapse trigger limit.</p>
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="number"
+                  min="32"
+                  max="60"
+                  disabled={!isAdmin}
+                  value={critTempMax}
+                  onChange={(e) => setCritTempMax(Number(e.target.value))}
+                  className="w-full px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-sm font-bold text-slate-800 font-mono disabled:opacity-75 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+                />
+                <span className="text-xs font-bold text-slate-500">°C</span>
+              </div>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1">Cell wall collapse & scorched tips</p>
-          </div>
 
-          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
-            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-              Cold Damage Limit
-            </label>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-rose-600 font-bold">&lt;</span>
-              <input
-                type="number"
-                min="0"
-                max="20"
-                value={critTempMin}
-                onChange={(e) => setCritTempMin(Number(e.target.value))}
-                disabled={!isAdmin}
-                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500/30"
-              />
-              <span className="text-xs text-slate-500 font-mono">°C</span>
+            <div className="p-4 rounded-xl border border-sky-100 bg-sky-50/40 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-sky-800">
+                <span className="flex items-center gap-1.5">
+                  <i className="fa-solid fa-snowflake text-xs"></i> Cold Stress Hazard
+                </span>
+                <span className="text-[10px] uppercase tracking-wider bg-sky-200 text-sky-800 px-1.5 py-0.5 rounded">
+                  Min Temp
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500">Chilling injury and metabolic dormancy limit.</p>
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="number"
+                  min="0"
+                  max="20"
+                  disabled={!isAdmin}
+                  value={critTempMin}
+                  onChange={(e) => setCritTempMin(Number(e.target.value))}
+                  className="w-full px-3 py-1.5 bg-white border border-sky-200 rounded-lg text-sm font-bold text-slate-800 font-mono disabled:opacity-75 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                />
+                <span className="text-xs font-bold text-slate-500">°C</span>
+              </div>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1">Freezing injury to gel core</p>
           </div>
 
           {isAdmin && (
-            <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
+            <div className="flex justify-end pt-2 border-t border-slate-100">
               <button
                 type="submit"
                 disabled={savingCritical}
-                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white rounded-xl text-xs font-semibold shadow-sm transition cursor-pointer flex items-center gap-2"
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 <i className="fa-solid fa-floppy-disk text-xs"></i>
                 {savingCritical ? "Saving Limits…" : "Save Critical Hazard Settings"}
@@ -362,65 +403,392 @@ export function SettingsView() {
         </form>
       </div>
 
-      <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-card">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start gap-3.5">
-            <div
-              className={`w-11 h-11 rounded-2xl ${
-                audioAlertsEnabled ? "bg-amber-100 text-amber-600" : "bg-slate-100 text-slate-400"
-              } flex items-center justify-center shrink-0`}
-            >
-              <i className={`fa-solid ${audioAlertsEnabled ? "fa-bell text-lg" : "fa-bell-slash text-lg"}`}></i>
+      {/* 3. Automated Moderator Email Notifications (NEW) */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+              <i className="fa-solid fa-envelope-circle-check text-lg"></i>
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-slate-900">Audio Chime & Warning Notifications</h3>
+                <h3 className="text-base font-bold text-slate-900">Automated Moderator Email Notifications</h3>
                 <span
                   className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                    audioAlertsEnabled ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"
+                    emailAlertsEnabled ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"
                   }`}
                 >
-                  {audioAlertsEnabled ? "Active" : "Muted"}
+                  {emailAlertsEnabled ? "Active" : "Disabled"}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-1 max-w-xl leading-relaxed">
-                Synthesizes browser warning chimes and urgency sirens when aloe vera parameters exceed safe or critical hazard thresholds.
+              <p className="text-xs text-slate-500 mt-0.5">
+                Dispatches instant email alerts for hazardous conditions, plant stress, and sensor communication faults.
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => playAlertChime("info")}
-              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
-            >
-              <i className="fa-solid fa-volume-high text-xs"></i> Test Gentle Tone
-            </button>
-            <button
-              type="button"
-              onClick={() => playAlertChime("critical")}
-              className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
-            >
-              <i className="fa-solid fa-triangle-exclamation text-xs"></i> Test Critical Siren
-            </button>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
             <button
               type="button"
               onClick={() => {
-                const next = !audioAlertsEnabled;
-                setAudioAlertsEnabled(next);
-                addActivity(`Audio alerts ${next ? "enabled" : "muted"}`, "info");
+                const next = !emailAlertsEnabled;
+                setEmailAlertsEnabled(next);
+                addActivity(`Email alerts ${next ? "enabled" : "disabled"}`, "info");
+                showToast(`Email notifications ${next ? "activated" : "disabled"}`, "info");
               }}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                audioAlertsEnabled
-                  ? "bg-amber-600 hover:bg-amber-700 text-white"
+                emailAlertsEnabled
+                  ? "bg-indigo-600 hover:bg-indigo-700 text-white"
                   : "bg-slate-200 hover:bg-slate-300 text-slate-700"
               }`}
             >
-              <i className={`fa-solid ${audioAlertsEnabled ? "fa-toggle-on" : "fa-toggle-off"} text-sm`}></i>
-              {audioAlertsEnabled ? "Disable Audio" : "Enable Audio"}
+              <i className={`fa-solid ${emailAlertsEnabled ? "fa-toggle-on" : "fa-toggle-off"} text-sm`}></i>
+              {emailAlertsEnabled ? "Disable Emails" : "Enable Emails"}
             </button>
           </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Moderator Email Configuration Form */}
+          <form onSubmit={handleSaveEmail} className="flex flex-col sm:flex-row items-end gap-3 max-w-2xl">
+            <div className="flex-1 w-full">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Moderator Alert Email Recipient
+              </label>
+              <div className="relative">
+                <i className="fa-solid fa-envelope absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input
+                  type="email"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  placeholder="moderator@agrisense.com"
+                  className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                type="submit"
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0"
+              >
+                <i className="fa-solid fa-floppy-disk text-xs"></i>
+                Save Email
+              </button>
+              <button
+                type="button"
+                onClick={handleSendTestEmail}
+                disabled={sendingTestEmail}
+                className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 disabled:opacity-50"
+                title="Send a sample hazard notification to verify inbox delivery"
+              >
+                <i className={`fa-solid ${sendingTestEmail ? "fa-rotate animate-spin" : "fa-paper-plane"} text-xs`}></i>
+                {sendingTestEmail ? "Sending…" : "Send Test Email"}
+              </button>
+            </div>
+          </form>
+
+          {/* SRE Alert Engine Policy Toggles */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            {/* 1. Anti-Spam Status */}
+            <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/40 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-emerald-800">
+                <span className="flex items-center gap-1.5">
+                  <i className="fa-solid fa-shield-halved text-sm text-emerald-600"></i> Anti-Spam Protection
+                </span>
+                <span className="text-[10px] uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-extrabold">
+                  Always Active
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Dispatches exactly <strong>1 email</strong> when a hazard begins. Continuous 30-second readings while hazardous are suppressed to prevent email flooding.
+              </p>
+            </div>
+
+            {/* 2. Recovery Notification */}
+            <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                <span className="flex items-center gap-1.5">
+                  <i className="fa-solid fa-circle-check text-sm text-emerald-500"></i> Recovery Notifications
+                </span>
+                <input
+                  type="checkbox"
+                  checked={emailRecoveryEnabled}
+                  onChange={(e) => {
+                    setEmailRecoveryEnabled(e.target.checked);
+                    showToast(`Recovery emails ${e.target.checked ? "enabled" : "muted"}`, "info");
+                  }}
+                  className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+                />
+              </div>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Sends an automated confirmation email when conditions safely return to the defined target range.
+              </p>
+            </div>
+
+            {/* 3. Sensor Disconnection */}
+            <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                <span className="flex items-center gap-1.5">
+                  <i className="fa-solid fa-plug-circle-xmark text-sm text-amber-500"></i> Disconnection Watchdog
+                </span>
+                <input
+                  type="checkbox"
+                  checked={emailDisconnectEnabled}
+                  onChange={(e) => {
+                    setEmailDisconnectEnabled(e.target.checked);
+                    showToast(`Disconnection alerts ${e.target.checked ? "enabled" : "muted"}`, "info");
+                  }}
+                  className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+                />
+              </div>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Alerts moderator of hardware or Wi-Fi communication timeouts (&gt; 3 mins) rather than treating it as a false crop hazard.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Alert Lifecycle & Resolution History Table (NEW) */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+              <i className="fa-solid fa-clock-rotate-left text-base"></i>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-slate-900">Alert Lifecycle & Resolution History</h3>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">
+                  {alertHistory.length} Logged
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Audit trail of triggered hazards, actual sensor readings, resolution durations, and notification status.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setHistoryFilter("all")}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  historyFilter === "all" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryFilter("active")}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  historyFilter === "active" ? "bg-white text-rose-700 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                Active
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryFilter("resolved")}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  historyFilter === "resolved" ? "bg-white text-emerald-700 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                Resolved
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={loadHistory}
+              disabled={loadingHistory}
+              className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 transition cursor-pointer"
+              title="Refresh alert history"
+            >
+              <i className={`fa-solid fa-rotate ${loadingHistory ? "animate-spin" : ""} text-xs`}></i>
+            </button>
+          </div>
+        </div>
+
+        <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
+          {filteredHistory.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 space-y-1">
+              <i className="fa-solid fa-shield-heart text-2xl text-slate-300"></i>
+              <p className="text-xs font-medium">No alerts recorded in this filter</p>
+              <p className="text-[11px] text-slate-400">Hazard events and their resolution times will be tracked here automatically.</p>
+            </div>
+          ) : (
+            filteredHistory.map((item) => {
+              const isActive = item.status === "active";
+              const durationMin = item.duration_seconds ? Math.round(item.duration_seconds / 60) : null;
+
+              return (
+                <div key={item.id} className="p-4 hover:bg-slate-50/60 transition flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <span
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-xs mt-0.5 ${
+                        isActive ? "bg-rose-100 text-rose-600" : "bg-emerald-100 text-emerald-600"
+                      }`}
+                    >
+                      <i className={`fa-solid ${isActive ? "fa-triangle-exclamation" : "fa-circle-check"}`}></i>
+                    </span>
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-slate-900">{item.hazard_type}</span>
+                        <span
+                          className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded ${
+                            isActive ? "bg-rose-600 text-white" : "bg-emerald-600 text-white"
+                          }`}
+                        >
+                          {item.status}
+                        </span>
+                        {item.email_sent && (
+                          <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded flex items-center gap-1">
+                            <i className="fa-solid fa-envelope text-[9px] text-indigo-500"></i>
+                            {item.recipient}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-600">
+                        Reading: <strong>{item.reading_value}</strong> · Threshold: <span className="font-mono text-slate-500">{item.threshold_limit}</span>
+                      </p>
+                      <div className="text-[11px] text-slate-400 flex items-center gap-3 pt-0.5">
+                        <span>
+                          <i className="fa-solid fa-clock mr-1 text-slate-300"></i>
+                          Triggered: {new Date(item.triggered_at).toLocaleString()}
+                        </span>
+                        {item.resolved_at && (
+                          <span className="text-emerald-700 font-medium">
+                            <i className="fa-solid fa-check-double mr-1 text-emerald-500"></i>
+                            Resolved in {durationMin && durationMin > 0 ? `${durationMin} mins` : `${item.duration_seconds || 1}s`} ({new Date(item.resolved_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      {/* 5. Cultivation Timeline */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-5 border-b border-slate-100">
+          <h3 className="text-base font-bold text-slate-900">Crop Cultivation Timeline</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Track growth cycle milestones and target maturity age.</p>
+        </div>
+
+        <form onSubmit={handleSavePlant} className="p-6 space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                Current Plant Age (Days)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="1000"
+                disabled={!isAdmin}
+                value={plantAge}
+                onChange={(e) => setLocalPlantAge(Number(e.target.value))}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-agri-500/30 focus:border-agri-500 disabled:opacity-75 font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                Target Harvest Age (Days)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="1000"
+                disabled={!isAdmin}
+                value={harvestAge}
+                onChange={(e) => setLocalHarvestAge(Number(e.target.value))}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-agri-500/30 focus:border-agri-500 disabled:opacity-75 font-mono"
+              />
+            </div>
+          </div>
+
+          {isAdmin && (
+            <div className="flex justify-end pt-2 border-t border-slate-100">
+              <button
+                type="submit"
+                disabled={savingPlant}
+                className="px-5 py-2.5 bg-agri-600 hover:bg-agri-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <i className="fa-solid fa-floppy-disk text-xs"></i>
+                {savingPlant ? "Saving…" : "Save Timeline Target"}
+              </button>
+            </div>
+          )}
+        </form>
+      </div>
+
+      {/* 6. Audio Warning Chimes */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div
+            className={`w-11 h-11 rounded-2xl ${
+              audioAlertsEnabled ? "bg-amber-100 text-amber-600" : "bg-slate-100 text-slate-400"
+            } flex items-center justify-center shrink-0`}
+          >
+            <i className={`fa-solid ${audioAlertsEnabled ? "fa-bell text-lg" : "fa-bell-slash text-lg"}`}></i>
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-bold text-slate-900">Audio Chime & Warning Notifications</h3>
+              <span
+                className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                  audioAlertsEnabled ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"
+                }`}
+              >
+                {audioAlertsEnabled ? "Active" : "Muted"}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Synthesizes browser warning chimes and urgency sirens when aloe vera parameters exceed safe or critical hazard thresholds.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => playAlertChime("info")}
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
+          >
+            <i className="fa-solid fa-music text-xs"></i>
+            Chime
+          </button>
+          <button
+            type="button"
+            onClick={() => playAlertChime("critical")}
+            className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
+          >
+            <i className="fa-solid fa-triangle-exclamation text-xs"></i>
+            Siren
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const next = !audioAlertsEnabled;
+              setAudioAlertsEnabled(next);
+              addActivity(`Audio alerts ${next ? "enabled" : "muted"}`, "info");
+            }}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              audioAlertsEnabled
+                ? "bg-amber-600 hover:bg-amber-700 text-white"
+                : "bg-slate-200 hover:bg-slate-300 text-slate-700"
+            }`}
+          >
+            <i className={`fa-solid ${audioAlertsEnabled ? "fa-toggle-on" : "fa-toggle-off"} text-sm`}></i>
+            {audioAlertsEnabled ? "Disable Audio" : "Enable Audio"}
+          </button>
         </div>
       </div>
     </section>

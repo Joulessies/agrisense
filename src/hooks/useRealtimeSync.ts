@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useStore } from '@/store/useStore';
 import { getCalendarDaysDiff } from '@/lib/utils';
+import { alertNotificationManager } from '@/services/alertNotificationManager';
 
 interface SensorReading {
   id: string | number;
@@ -105,6 +106,7 @@ export function useRealtimeSync() {
           updateSensor('humidity', row.humidity ?? null);
           updateSensor('light', row.lux ?? null);
           checkCriticalAlerts(row.soil_moisture, row.temperature);
+          alertNotificationManager.evaluateTelemetry({ soilMoisture: row.soil_moisture, temperature: row.temperature, humidity: row.humidity, lux: row.lux });
 
           const isHardware = Boolean(
             row.device_id &&
@@ -287,6 +289,8 @@ export function useRealtimeSync() {
           updateSensor('humidity', data.dht_error ? null : (data.humidity ?? null));
           updateSensor('light', data.lux ?? null);
           checkCriticalAlerts(data.soilMoisture, data.temperature);
+          alertNotificationManager.evaluateTelemetry({ soilMoisture: data.soilMoisture, temperature: data.dht_error ? null : data.temperature, humidity: data.dht_error ? null : data.humidity, lux: data.lux });
+          alertNotificationManager.evaluateHardwareConnectivity(false);
 
           useStore.getState().incrementPacketCount?.();
           const now = new Date();
@@ -350,11 +354,17 @@ export function useRealtimeSync() {
     const midnightInterval = setInterval(checkMidnightTurnover, 10000);
 
     const watchdogInterval = setInterval(() => {
-      const { lastSync } = useStore.getState();
-      if (lastSync) {
-        const diffMs = Date.now() - new Date(lastSync).getTime();
-        if (diffMs > 180000) {
+      const { lastSync, lastHardwarePacketAt, telemetrySource } = useStore.getState();
+      const refTime = telemetrySource === 'hardware' && lastHardwarePacketAt
+        ? lastHardwarePacketAt
+        : lastSync ? new Date(lastSync).getTime() : null;
+
+      if (refTime) {
+        const diffMs = Date.now() - refTime;
+        const isDisconnected = diffMs > 180000;
+        if (isDisconnected) {
           useStore.setState({ realtimeStatus: 'disconnected' });
+          alertNotificationManager.evaluateHardwareConnectivity(true, new Date(refTime));
         }
       }
     }, 10000);

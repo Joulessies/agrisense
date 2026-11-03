@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { useStore } from "@/store/useStore";
 import { SensorCard } from "@/components/ui/SensorCard";
-import { PlantStatusCard } from "@/components/ui/PlantStatusCard";
 import { HarvestCard } from "@/components/ui/HarvestCard";
 import { RecommendationsCard } from "@/components/ui/RecommendationsCard";
 import { ActivityFeed } from "@/components/ui/ActivityFeed";
@@ -168,8 +167,7 @@ export function DashboardView() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
-        <PlantStatusCard />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <HarvestCard />
         <WeatherCard />
         <RecommendationsCard />

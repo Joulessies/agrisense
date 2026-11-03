@@ -21,6 +21,7 @@ import { StatCard } from "@/components/ui/StatCard";
 import { useGeminiInsights } from "@/hooks/useGeminiInsights";
 import { FarmHealthReportModal } from "@/components/ui/FarmHealthReportModal";
 import { AnomaliesHistoryModal } from "@/components/ui/AnomaliesHistoryModal";
+import { fetchSensorAnomalies } from "@/services/anomalyService";
 import { calculateAloeVitality, getTimeOfDayPST } from "@/lib/utils";
 
 ChartJS.register(
@@ -124,13 +125,10 @@ export function AnalyticsView() {
           setDailyData(fallbackData);
         }
 
-        const { count } = await supabase
-          .from("activity_logs")
-          .select("*", { count: "exact", head: true })
-          .in("tone", ["warning", "critical"])
-          .gte("created_at", startDate.toISOString());
-
-        if (count !== null) setAnomalyCount(count);
+        const incidents = await fetchSensorAnomalies(
+          analyticsRange === "season" ? "90d" : analyticsRange === "30d" ? "30d" : "7d"
+        );
+        setAnomalyCount(incidents.length);
       } catch (e) {
         console.error("Failed to fetch analytics:", e);
       } finally {

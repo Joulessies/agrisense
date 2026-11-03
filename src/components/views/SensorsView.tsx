@@ -349,7 +349,7 @@ export function SensorsView() {
           throw new Error(errData.error || "Failed to delete node in database");
         }
 
-        addActivity(`Deleted node: ${id}`, "warning");
+        addActivity(`Deleted node: ${id}`, "info");
 
         const refreshRes = await fetch("/api/nodes");
         if (refreshRes.ok) {

@@ -415,7 +415,7 @@ export const useStore = create<AppState>((set) => ({
         ...state.sensors,
         soilMoisture: {
           ...state.sensors.soilMoisture,
-          value: Math.max(state.sensors.soilMoisture.value ?? 0, 35),
+          value: 38,
         },
       },
     }));

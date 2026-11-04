@@ -5,10 +5,10 @@ export type StressLevel = 'optimal' | 'monitor' | 'mild_water_stress' | 'high_st
 
 export interface LeafSymptom {
   thickness: 'Plump & Thick' | 'Slightly Thin' | 'Thin & Flat' | 'Severely Thin / Dried';
-  texture: 'Firm & Turgid' | 'Slightly Soft' | 'Shriveled / Wrinkled' | 'Mushy / Translucent' | 'Brittle';
-  color: 'Deep Green' | 'Pale Green (Etiolated)' | 'Brown / Reddish Spots (Sunburn)' | 'Brown Tips' | 'Yellowing / Mushy';
-  posture: 'Erect & Spreading' | 'Slightly Drooping' | 'Fallen / Collapsed';
-  roots: 'Healthy & White' | 'Stressed' | 'Root Desiccation Risk' | 'Root Rot Damaged';
+  texture: 'Firm & Turgid' | 'Slightly Soft' | 'Shriveled / Wrinkled' | 'Mushy / Translucent' | 'Brittle' | 'Firm & Succulent' | 'Soft / Water-Soaked';
+  color: 'Deep Green' | 'Pale Green (Etiolated)' | 'Brown / Reddish Spots (Sunburn)' | 'Brown Tips' | 'Yellowing / Mushy' | 'Vibrant Green' | 'Pale Yellowish';
+  posture: 'Erect & Spreading' | 'Slightly Drooping' | 'Fallen / Collapsed' | 'Upright & Turgid';
+  roots: 'Healthy & White' | 'Stressed' | 'Root Desiccation Risk' | 'Root Rot Damaged' | 'Healthy & Hydrated';
 }
 
 export interface DailyPrediction {
@@ -123,7 +123,23 @@ export function predictCropOutcomes(
     aggravatingFactors.push('Extreme UV index at midday with no shade netting');
   }
 
-  let runningMoisture = currentSoilMoisture;
+  // When manual watering days are specified by slider or "Watered Today", ensure starting moisture aligns realistically
+  let startSoilMoisture = currentSoilMoisture;
+  if (manualWateringDays !== null && manualWateringDays >= 0) {
+    if (manualWateringDays === 0) {
+      // Watered today: freshly hydrated, clamped to realistic post-watering moisture (38% - 50%)
+      startSoilMoisture = Math.min(50, Math.max(38, currentSoilMoisture > 65 ? 42 : currentSoilMoisture));
+    } else if (manualWateringDays <= 2) {
+      // 1-2 days ago: healthy hydrated range
+      startSoilMoisture = Math.min(45, Math.max(22, currentSoilMoisture > 65 ? 38 : currentSoilMoisture));
+    } else {
+      // 3+ days: drying down proportionally with days
+      const expectedMoisture = Math.max(6, 38 - manualWateringDays * 1.8);
+      startSoilMoisture = Math.min(currentSoilMoisture, expectedMoisture);
+    }
+  }
+
+  let runningMoisture = startSoilMoisture;
   let runningDaysWithoutWater = currentDays;
   const dailyTimeline: DailyPrediction[] = [];
 
@@ -132,27 +148,16 @@ export function predictCropOutcomes(
   const soilFactor = settings.soilType === 'fast_draining' ? 1.25 : settings.soilType === 'clay' ? 0.85 : 1.0;
 
   weather.forecast.forEach((dayWeather, i) => {
-    const tempImpact = Math.max(0.7, dayWeather.tempMax / 28);
-    const rainMm = dayWeather.rainMm;
-    const isRainyDay = rainMm >= 3.0 || dayWeather.pop >= 0.65;
-
-    const dailyDepletion = 2.2 * tempImpact * potFactor * sunFactor * soilFactor;
-
-    if (isRainyDay) {
-      const rainGain = Math.min(45, rainMm * 2.8 + 10);
-      runningMoisture = Math.min(80, runningMoisture + rainGain);
-      runningDaysWithoutWater = 0;
-    } else {
-      runningMoisture = Math.max(4, runningMoisture - dailyDepletion);
-      runningDaysWithoutWater += 1;
-    }
+    // Current day's values: Day 1 (Today) reflects startSoilMoisture and user's current days unwatered
+    const simulatedSoilMoisture = i === 0 ? startSoilMoisture : runningMoisture;
+    const simulatedDaysUnwatered = i === 0 ? currentDays : runningDaysWithoutWater;
 
     const isCloudy = dayWeather.description.toLowerCase().includes('cloud') || dayWeather.description.toLowerCase().includes('rain');
     const simulatedLux = isCloudy ? 6000 + dayWeather.uvIndex * 800 : 14000 + dayWeather.uvIndex * 1500;
 
     const { stress, condition, leafSymptom, vitality, alerts } = evaluateAloeCondition(
-      runningDaysWithoutWater,
-      runningMoisture,
+      simulatedDaysUnwatered,
+      simulatedSoilMoisture,
       dayWeather.tempMax,
       dayWeather.tempMin,
       dayWeather.uvIndex,
@@ -163,22 +168,48 @@ export function predictCropOutcomes(
       dayIndex: i,
       date: dayWeather.date,
       weather: dayWeather,
-      simulatedSoilMoisture: Math.round(runningMoisture * 10) / 10,
+      simulatedSoilMoisture: Math.round(simulatedSoilMoisture * 10) / 10,
       simulatedTempMax: dayWeather.tempMax,
       simulatedTempMin: dayWeather.tempMin,
       simulatedLux: Math.round(simulatedLux),
-      daysWithoutWater: runningDaysWithoutWater,
+      daysWithoutWater: simulatedDaysUnwatered,
       vitalityScore: vitality,
       stressLevel: stress,
       primaryCondition: condition,
       leafSymptom,
       alerts,
     });
+
+    // Advance moisture and days unwatered for the subsequent forecast days:
+    const tempImpact = Math.max(0.7, dayWeather.tempMax / 28);
+    const rainMm = dayWeather.rainMm || 0;
+
+    // Substantial soaking rain (>= 8.0mm) penetrates the potting substrate and resets the drought counter
+    const isSoakingRain = rainMm >= 8.0;
+    // Moderate rain (3.0mm - 7.9mm) reduces evaporation and slightly dampens surface soil
+    const isModerateRain = rainMm >= 3.0 && rainMm < 8.0;
+
+    const baseDailyDepletion = 2.2 * tempImpact * potFactor * sunFactor * soilFactor;
+    const evapDamping = isSoakingRain ? 0.1 : isModerateRain ? 0.4 : (dayWeather.pop >= 0.6 ? 0.75 : 1.0);
+    const dailyDepletion = baseDailyDepletion * evapDamping;
+
+    if (isSoakingRain) {
+      const rainGain = Math.min(35, rainMm * 2.0);
+      runningMoisture = Math.min(65, simulatedSoilMoisture + rainGain);
+      runningDaysWithoutWater = 0;
+    } else if (isModerateRain) {
+      const rainGain = Math.min(10, rainMm * 1.0);
+      runningMoisture = Math.max(4, Math.min(55, simulatedSoilMoisture + rainGain - dailyDepletion));
+      runningDaysWithoutWater = simulatedDaysUnwatered + 1;
+    } else {
+      runningMoisture = Math.max(4, simulatedSoilMoisture - dailyDepletion);
+      runningDaysWithoutWater = simulatedDaysUnwatered + 1;
+    }
   });
 
   const currentEvaluation = evaluateAloeCondition(
     currentDays,
-    currentSoilMoisture,
+    startSoilMoisture,
     currentTemp,
     currentTemp - 5,
     weather.forecast[0]?.uvIndex ?? 6,
@@ -186,7 +217,7 @@ export function predictCropOutcomes(
   );
 
   const daysUntilWaterRequired = Math.max(0, maxWateringInterval - currentDays);
-  const urgentActionRequired = currentDays >= maxWateringInterval || currentSoilMoisture < 15 || currentEvaluation.stress === 'overwatering';
+  const urgentActionRequired = currentDays >= maxWateringInterval || startSoilMoisture < 15 || currentEvaluation.stress === 'overwatering';
 
   const targetDate = new Date();
   targetDate.setDate(targetDate.getDate() + daysUntilWaterRequired);
@@ -198,7 +229,7 @@ export function predictCropOutcomes(
 
   const actionPlan = buildActionPlan(
     currentDays,
-    currentSoilMoisture,
+    startSoilMoisture,
     isTagUlan,
     weather,
     settings,
@@ -250,26 +281,31 @@ function evaluateAloeCondition(
 } {
   const alerts: string[] = [];
 
-  if (soilMoisture > 55 || (soilMoisture > 45 && daysWithoutWater <= 2)) {
-    alerts.push('Root Rot Risk: Soil is saturated with water.');
+  // 1. CHRONIC OVERWATERING / ROOT ROT RISK
+  // True root rot occurs when soil remains waterlogged (>55%) and fails to drain after 3+ days,
+  // or severe stagnant saturation (>70%) persists beyond 2 days without drying.
+  const isChronicSaturation = (soilMoisture > 55 && daysWithoutWater >= 3) || (soilMoisture > 70 && daysWithoutWater >= 2);
+  if (isChronicSaturation) {
+    alerts.push('Root Rot Warning: Potting soil remains waterlogged without draining properly.');
     return {
       stress: 'overwatering',
-      condition: 'Overwatered / Root Rot Risk',
-      tagalogCondition: 'Overwatered / Root Rot Risk',
-      description: 'Persistent moisture prevents oxygen reaching aloe roots, risking deadly fungal root rot.',
-      tagalogDescription: 'Persistent moisture prevents oxygen reaching aloe roots, risking deadly fungal root rot.',
+      condition: 'Overwatered / Poor Drainage Risk',
+      tagalogCondition: 'Sobra sa Tubig / Panganib sa Root Rot',
+      description: 'Persistent stagnant moisture prevents oxygen from reaching roots. High risk of fungal root rot if drainage is not improved.',
+      tagalogDescription: 'Masyadong basâ ang lupa nang matagal nang hindi natutuyo. Siguraduhing may butas ang paso.',
       leafSymptom: {
         thickness: 'Plump & Thick',
-        texture: 'Mushy / Translucent',
-        color: 'Yellowing / Mushy',
+        texture: daysWithoutWater >= 5 ? 'Mushy / Translucent' : 'Soft / Water-Soaked',
+        color: daysWithoutWater >= 5 ? 'Yellowing / Mushy' : 'Pale Yellowish',
         posture: 'Slightly Drooping',
         roots: 'Root Rot Damaged',
       },
-      vitality: 45,
+      vitality: daysWithoutWater >= 5 ? 45 : 55,
       alerts,
     };
   }
 
+  // 2. TEMPERATURE & ENVIRONMENTAL STRESS ALERTS
   if (tempMax >= 35) {
     alerts.push(`High Temperature (${tempMax}°C): Heat stress on foliage.`);
   }
@@ -277,14 +313,15 @@ function evaluateAloeCondition(
     alerts.push(`Low Temperature (${tempMin}°C): Cold stress on aloe crop.`);
   }
 
+  // 3. DROUGHT PROGRESSION BASED ON UNWATERED DAYS
   if (daysWithoutWater >= 22) {
     alerts.push('Critical Drought: Over 3–4 weeks without water in high temperatures.');
     return {
       stress: 'critical_drought',
       condition: 'Critical Condition (Severe Drought)',
-      tagalogCondition: 'Critical Condition (Severe Drought)',
+      tagalogCondition: 'Kritikal na Tagtuyot (3-4 na Linggo)',
       description: 'Severe drought and high heat: leaves are desiccated, bottom foliage dying, root system damaged.',
-      tagalogDescription: 'Severe drought and high heat: leaves are desiccated, bottom foliage dying, root system damaged.',
+      tagalogDescription: 'Matinding tagtuyot: nanunuyo at lumalagas na ang mga dahon.',
       leafSymptom: {
         thickness: 'Severely Thin / Dried',
         texture: 'Brittle',
@@ -302,9 +339,9 @@ function evaluateAloeCondition(
     return {
       stress: 'high_stress',
       condition: 'High Stress (Survival Mode)',
-      tagalogCondition: 'High Stress (Survival Mode)',
+      tagalogCondition: 'Mataas na Stress (Survival Mode)',
       description: 'Leaves shriveling, tips turning brown, leaves may droop. Plant is conserving emergency moisture.',
-      tagalogDescription: 'Leaves shriveling, tips turning brown, leaves may droop. Plant is conserving emergency moisture.',
+      tagalogDescription: 'Nangungulubot ang mga dahon at nanunuyo ang mga dulo.',
       leafSymptom: {
         thickness: 'Thin & Flat',
         texture: 'Shriveled / Wrinkled',
@@ -322,9 +359,9 @@ function evaluateAloeCondition(
     return {
       stress: 'mild_water_stress',
       condition: 'Mild Water Stress',
-      tagalogCondition: 'Mild Water Stress',
+      tagalogCondition: 'Katamtamang Uhaw (Mild Stress)',
       description: 'Leaves slightly thinning and softening, growth slowed down. Completely recoverable once watered.',
-      tagalogDescription: 'Leaves slightly thinning and softening, growth slowed down. Completely recoverable once watered.',
+      tagalogDescription: 'Medyo lumalambot ang mga dahon; agad babalik sa sigla kapag nadiligan.',
       leafSymptom: {
         thickness: 'Slightly Thin',
         texture: 'Slightly Soft',
@@ -337,13 +374,14 @@ function evaluateAloeCondition(
     };
   }
 
+  // 4. WEATHER-INDUCED STRESS (Midday Heat, Sunburn, Cold)
   if (tempMax >= 35) {
     return {
       stress: 'heat_stress',
       condition: 'Extreme Heat Stress',
-      tagalogCondition: 'Extreme Heat Stress',
+      tagalogCondition: 'Matinding Init (Heat Stress)',
       description: 'Prolonged high ambient heat causing brown tip drying and leaf curling.',
-      tagalogDescription: 'Prolonged high ambient heat causing brown tip drying and leaf curling.',
+      tagalogDescription: 'Mataas na temperatura sa tanghali na nagdudulot ng pamumula o pagkatuyo ng dulo.',
       leafSymptom: {
         thickness: 'Slightly Thin',
         texture: 'Firm & Turgid',
@@ -361,9 +399,9 @@ function evaluateAloeCondition(
     return {
       stress: 'sunburn',
       condition: 'Sunburn Exposure Risk',
-      tagalogCondition: 'Sunburn Exposure Risk',
+      tagalogCondition: 'Panganib sa Pagkasunog ng Araw (Sunburn)',
       description: 'Full midday sun exposure can cause reddish-brown discoloration and scorched leaf tissue.',
-      tagalogDescription: 'Full midday sun exposure can cause reddish-brown discoloration and scorched leaf tissue.',
+      tagalogDescription: 'Direktang sikat ng araw na nagdudulot ng pamumula ng dahon.',
       leafSymptom: {
         thickness: 'Plump & Thick',
         texture: 'Firm & Turgid',
@@ -380,9 +418,9 @@ function evaluateAloeCondition(
     return {
       stress: 'cold_stress',
       condition: 'Cold Stress (Low Temperatures)',
-      tagalogCondition: 'Cold Stress (Low Temperatures)',
+      tagalogCondition: 'Cold Stress (Malamig na Panahon)',
       description: 'Growth arrested and leaves softening due to low temperatures under 12°C.',
-      tagalogDescription: 'Growth arrested and leaves softening due to low temperatures under 12°C.',
+      tagalogDescription: 'Nababansot ang paglaki dahil sa sobrang lamig.',
       leafSymptom: {
         thickness: 'Plump & Thick',
         texture: 'Slightly Soft',
@@ -395,13 +433,14 @@ function evaluateAloeCondition(
     };
   }
 
+  // 5. APPROACHING WATERING INTERVAL (Days 7–9)
   if (daysWithoutWater >= 7) {
     return {
       stress: 'monitor',
       condition: 'Approaching Watering Interval',
-      tagalogCondition: 'Approaching Watering Interval',
+      tagalogCondition: 'Palapit na sa Araw ng Pagdidilig',
       description: 'Approaching the 7-10 day dry season threshold. Prepare to water in the coming 24-48 hours.',
-      tagalogDescription: 'Approaching the 7-10 day dry season threshold. Prepare to water in the coming 24-48 hours.',
+      tagalogDescription: 'Nasa ika-7 hanggang 9 na araw na mula noong huling dilig. Maghandang magdilig.',
       leafSymptom: {
         thickness: 'Plump & Thick',
         texture: 'Firm & Turgid',
@@ -414,12 +453,36 @@ function evaluateAloeCondition(
     };
   }
 
+  // 6. FRESHLY WATERED / HYDRATED (Days 0–2)
+  if (daysWithoutWater <= 2) {
+    if (soilMoisture > 75) {
+      alerts.push('Thoroughly Saturated Soil: Allow soil to dry out completely before watering again.');
+    }
+    return {
+      stress: 'optimal',
+      condition: 'Optimal / Freshly Watered',
+      tagalogCondition: 'Sariwang Dilig / Malusog',
+      description: 'Recently watered. Soil is thoroughly moist and succulent leaf parenchyma is fully turgid and hydrated.',
+      tagalogDescription: 'Bagong dilig ang halaman. Malusog at mataba ang mga dahon.',
+      leafSymptom: {
+        thickness: 'Plump & Thick',
+        texture: 'Firm & Succulent',
+        color: 'Vibrant Green',
+        posture: 'Upright & Turgid',
+        roots: 'Healthy & Hydrated',
+      },
+      vitality: 98,
+      alerts,
+    };
+  }
+
+  // 7. OPTIMAL GENERAL HEALTH (Days 3–6)
   return {
     stress: 'optimal',
     condition: 'Optimal Plant Health',
-    tagalogCondition: 'Optimal Plant Health',
+    tagalogCondition: 'Perpektong Kalusugan ng Halaman',
     description: 'Soil moisture and weather conditions are well balanced for succulent growth.',
-    tagalogDescription: 'Soil moisture and weather conditions are well balanced for succulent growth.',
+    tagalogDescription: 'Balanseng-balanse ang moisture at sikat ng araw para sa malusog na paglaki.',
     leafSymptom: {
       thickness: 'Plump & Thick',
       texture: 'Firm & Turgid',

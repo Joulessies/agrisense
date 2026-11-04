@@ -47,7 +47,6 @@ export function HarvestCard() {
             <p className={`text-lg font-semibold ${ready ? "text-agri-700" : "text-slate-700"}`}>
               {ready ? "Ready to Harvest" : "Not Ready"}
             </p>
-            <p className="text-xs text-slate-500 mt-0.5">Plant age: <strong className="text-slate-700">{age} days</strong></p>
           </div>
         </div>
       </div>
@@ -65,10 +64,7 @@ export function HarvestCard() {
             style={{ width: `${progress}%` }}
           ></div>
         </div>
-        <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-100">
-          <p className="text-xs text-slate-500">
-            Target: {harvestAge}+ days
-          </p>
+        <div className="mt-3 flex items-center justify-end pt-2 border-t border-slate-100">
           {ready ? (
             <button
               onClick={handleHarvest}

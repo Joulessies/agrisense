@@ -9,7 +9,12 @@ export function PlantStatusCard() {
   const { sensors, telemetrySource } = useStore();
   const { isNight } = getTimeOfDayPST();
   const disconnected = Object.values(sensors).filter((s) => getStatus(s) === "disconnected");
-  const out = Object.values(sensors).filter((s) => getStatus(s) !== "ok" && getStatus(s) !== "disconnected");
+  const out = Object.values(sensors).filter((s) => {
+    if (s.id === "soilMoisture") {
+      return s.value !== null && s.value < 15;
+    }
+    return getStatus(s) !== "ok" && getStatus(s) !== "disconnected";
+  });
 
   const { score: currentLiveVitality } = calculateAloeVitality(sensors);
   const [overallVitality, setOverallVitality] = useState<number | null>(null);
@@ -96,22 +101,28 @@ export function PlantStatusCard() {
     stressColor = isNight ? "text-indigo-600" : "text-agri-600";
   } else if (out.length === 1) {
     label = "Warning";
-    reason = `${out[0].label} (${out[0].value !== null ? out[0].value : '—'}${out[0].unit === 'lux' ? ' lx' : out[0].unit}) out of range`;
+    reason = `${out[0].label} (${out[0].value !== null ? out[0].value : '—'}${out[0].unit === 'lux' ? ' lx' : out[0].unit}) requires attention`;
     iconColor = "text-amber-700";
     iconBg = "bg-amber-100";
     icon = "fa-triangle-exclamation";
     stress = "Medium";
     stressColor = "text-amber-600";
-  } else {
+  } else if (out.length > 1) {
     label = "Critical";
-    reason = out.length > 1
-      ? `${out.map((s) => `${s.label} (${s.value ?? '—'}${s.unit === 'lux' ? ' lx' : s.unit})`).join(", ")} out of range`
-      : `Cumulative vitality at ${displayVitality}%`;
+    reason = `${out.map((s) => `${s.label} (${s.value ?? '—'}${s.unit === 'lux' ? ' lx' : s.unit})`).join(", ")} out of bounds`;
     iconColor = "text-rose-700";
     iconBg = "bg-rose-100";
     icon = "fa-circle-exclamation";
     stress = "High";
     stressColor = "text-rose-600";
+  } else {
+    label = "Healthy";
+    reason = isNight ? "Nighttime resting state — CAM active" : "Optimal historical & live microclimate";
+    iconColor = isNight ? "text-indigo-600" : "text-emerald-700";
+    iconBg = isNight ? "bg-indigo-50" : "bg-emerald-100";
+    icon = isNight ? "fa-moon" : "fa-heart";
+    stress = "Low";
+    stressColor = isNight ? "text-indigo-600" : "text-emerald-600";
   }
 
   return (

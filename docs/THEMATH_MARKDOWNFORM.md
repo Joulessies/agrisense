@@ -314,3 +314,4 @@ $$\text{MAPE} = \frac{100\%}{n} \sum_{i=1}^n \left| \frac{y_i - \hat{y}_i}{y_i +
 | **Mean Absolute Pct Error** | MAPE | Soil Moisture | **$1.16\%$** | $< 5.00\%$ | Pass (Optimal) |
 | **Model Parameters** | $|\Theta|$ | Full Architecture | **$78,690$** | $< 100,000$ | Pass (Edge Fit) |
 | **Lookback Sequence** | $W$ | Input Matrix | **$24\text{ hours}$** | $24\text{ hours}$ | Pass (Diurnal) |
+

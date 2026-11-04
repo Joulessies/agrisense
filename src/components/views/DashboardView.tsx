@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useStore } from "@/store/useStore";
 import { SensorCard } from "@/components/ui/SensorCard";
+import { PlantStatusCard } from "@/components/ui/PlantStatusCard";
 import { HarvestCard } from "@/components/ui/HarvestCard";
 import { RecommendationsCard } from "@/components/ui/RecommendationsCard";
 import { ActivityFeed } from "@/components/ui/ActivityFeed";
@@ -27,7 +28,10 @@ export function DashboardView() {
   const activeNodes = nodes.filter((n) => n.online).length;
 
   const disconnectedSensors = Object.values(sensors).filter((s) => s.value === null || getStatus(s) === "disconnected");
-  const outOfRangeCount = Object.values(sensors).filter((s) => getStatus(s) !== "ok" && getStatus(s) !== "disconnected").length;
+  const outOfRangeCount = Object.values(sensors).filter((s) => {
+    if (s.id === "soilMoisture") return s.value !== null && s.value < 15;
+    return getStatus(s) !== "ok" && getStatus(s) !== "disconnected";
+  }).length;
 
   const [showCareMatrix, setShowCareMatrix] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -167,7 +171,8 @@ export function DashboardView() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+        <PlantStatusCard />
         <HarvestCard />
         <WeatherCard />
         <RecommendationsCard />

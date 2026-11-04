@@ -573,7 +573,7 @@ export function LstmModelHub() {
           Download the research paper PDF, historical dataset CSV, ground truth vs predictions data, and the PyTorch model code.
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
           <a
             href="/api/ml-model?download=pdf"
             target="_blank"
@@ -593,6 +593,26 @@ export function LstmModelHub() {
             </div>
             <span className="text-[10px] font-bold text-emerald-700 mt-3 inline-flex items-center gap-1">
               <i className="fa-solid fa-download"></i> Download PDF
+            </span>
+          </a>
+
+          <a
+            href="/api/ml-model?download=math"
+            className="p-4 rounded-xl border border-purple-200 hover:border-purple-500 hover:bg-purple-50/40 transition group flex flex-col justify-between"
+          >
+            <div>
+              <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center mb-2.5">
+                <i className="fa-solid fa-square-root-variable text-sm"></i>
+              </div>
+              <p className="text-xs font-bold text-slate-900 group-hover:text-purple-700">
+                Mathematical Spec
+              </p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Full LaTeX equations, CAM physics, and Bi-LSTM gate matrices (.md)
+              </p>
+            </div>
+            <span className="text-[10px] font-bold text-purple-700 mt-3 inline-flex items-center gap-1">
+              <i className="fa-solid fa-download"></i> Download .md
             </span>
           </a>
 

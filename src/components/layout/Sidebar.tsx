@@ -4,15 +4,13 @@ import { useStore } from "@/store/useStore";
 import React from "react";
 
 export function Sidebar() {
-  const { role, currentView, setCurrentView, sensors, dismissedAlerts, nodes } = useStore();
+  const { role, currentView, setCurrentView, sensors, dismissedAlerts } = useStore();
 
   const activeAlertsCount = Object.values(sensors).filter((s) => {
     const isDisconnected = s.value === null || s.value === undefined || isNaN(s.value);
     const isOut = isDisconnected || (s.value !== null && (s.value < s.optimal.min || s.value > s.optimal.max));
     return isOut && !dismissedAlerts.has(s.id);
   }).length;
-
-  const nodeCount = nodes.length;
 
   const mainNavItems = [
     { id: "dashboard", label: "Dashboard", icon: "fa-gauge-high" },
@@ -128,20 +126,6 @@ export function Sidebar() {
           })}
         </div>
       </nav>
-
-      <div className="m-4 p-4 rounded-2xl bg-gradient-to-br from-agri-700 to-agri-900 text-white shadow-md">
-        <div className="flex items-center gap-2 mb-1.5">
-          <i className="fa-solid fa-leaf text-agri-300"></i>
-          <p className="text-sm font-bold">Aloe Vera Zone #1</p>
-        </div>
-        <p className="text-xs text-agri-200 mb-3">{nodeCount} online sensor nodes</p>
-        <button
-          onClick={() => setCurrentView("sensors")}
-          className="w-full text-xs bg-white/15 hover:bg-white/25 text-white transition py-2 rounded-lg font-semibold"
-        >
-          Inspect Nodes
-        </button>
-      </div>
     </aside>
   );
 }

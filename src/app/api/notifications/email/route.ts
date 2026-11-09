@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { claimEpisode, episodeKeyFrom, finishEpisode, releaseEpisode } from "@/services/liveAlertState";
 
-export async function POST(req: NextRequest) {
+export const runtime = "nodejs";
+
+function oneLine(value: unknown): string {
+  return String(value ?? "").replace(/[\r\n]+/g, " ").trim();
+}
+
+export async function sendNotificationEmail(body: any) {
+  let episode: ReturnType<typeof episodeKeyFrom> = null;
+  let noticeType = "hazard";
   try {
-    const body = await req.json();
     const {
       type = "hazard", // "hazard" | "recovery" | "disconnect" | "test"
       recipient,
@@ -14,11 +22,30 @@ export async function POST(req: NextRequest) {
       zone = "Aloe Vera Zone #1",
       nodeId = "agrisense-001",
       portalUrl = process.env.NEXT_PUBLIC_APP_URL || "https://agrisense-git.vercel.app",
+      lastKnown = "",
     } = body;
+    noticeType = String(type);
 
-    if (!recipient || typeof recipient !== "string" || !recipient.includes("@")) {
+    const normalizedRecipient = typeof recipient === "string" ? recipient.trim().toLowerCase() : "";
+    const ownerEmail = oneLine(process.env.ALERT_EMAIL).toLowerCase();
+    const isEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    const recipients = new Set<string>();
+    if (isEmail(normalizedRecipient) && normalizedRecipient !== "moderator@agrisense.com") {
+      recipients.add(normalizedRecipient);
+    } else if (isEmail(ownerEmail)) {
+      recipients.add(ownerEmail);
+    }
+    if (recipients.size === 0) {
       return NextResponse.json(
-        { error: "A valid recipient email address is required." },
+        { success: false, delivered: false, error: "A valid recipient email address is required." },
+        { status: 400 }
+      );
+    }
+    const to = [...recipients];
+
+    if (!["hazard", "recovery", "disconnect", "test"].includes(type)) {
+      return NextResponse.json(
+        { success: false, delivered: false, error: "Unknown email notification type." },
         { status: 400 }
       );
     }
@@ -216,6 +243,7 @@ Fault Details
 * Fault Type: Hardware Offline / Sensor Communication Timeout
 * Affected Node: ${nodeId}
 * Last Telemetry: ${timestamp}
+${lastKnown ? `* Last Reading: ${lastKnown}` : ""}
 
 Recommended Action:
 Please inspect the ESP32 node power supply and local Wi-Fi connectivity. This is a hardware/communication fault and does not indicate plant damage.
@@ -265,6 +293,7 @@ Automated Notification`;
         <div class="item"><span class="label">Fault Type:</span><span class="val">Node Communication Timeout</span></div>
         <div class="item"><span class="label">Node ID:</span><span class="val">${nodeId}</span></div>
         <div class="item"><span class="label">Last Telemetry:</span><span class="val">${timestamp}</span></div>
+        ${lastKnown ? `<div class="item"><span class="label">Last Reading:</span><span class="val">${lastKnown}</span></div>` : ""}
       </div>
 
       <p style="font-size: 13px; color: #475569; line-height: 1.5; margin-bottom: 24px;">
@@ -283,69 +312,191 @@ Automated Notification`;
 </html>`;
     }
 
-    // SMTP Transporter configuration
-    const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
-    const smtpPort = Number(process.env.SMTP_PORT) || 465;
-    const smtpUser = process.env.SMTP_USER;
-    const smtpPass = process.env.SMTP_PASS;
-    const smtpFrom = process.env.SMTP_FROM || `"AgriSense Alerts" <${smtpUser || "alerts@agrisense.com"}>`;
+    if (!subject || !text) {
+      return NextResponse.json(
+        { success: false, delivered: false, error: "Email content could not be built for this notification." },
+        { status: 400 }
+      );
+    }
 
-    if (smtpUser && smtpPass) {
-      // Live SMTP Dispatch
-      const transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: smtpPort,
-        secure: smtpPort === 465,
-        auth: {
-          user: smtpUser,
-          pass: smtpPass,
-        },
-      });
-
-      const info = await transporter.sendMail({
-        from: smtpFrom,
-        to: recipient,
-        subject,
-        text,
-        html,
-      });
-
+    subject = oneLine(subject).slice(0, 180);
+    episode = episodeKeyFrom(String(type), String(hazardType));
+    if (episode && !claimEpisode(String(type), episode)) {
       return NextResponse.json({
         success: true,
         delivered: true,
-        messageId: info.messageId,
-        recipient,
-        type,
-        subject,
-      });
-    } else {
-      // Simulated Dev Preview Dispatch (when SMTP credentials are not yet set in .env.local)
-      console.log(`\n======================================================`);
-      console.log(`[AgriSense Email Dispatcher - Simulated Delivery]`);
-      console.log(`To: ${recipient}`);
-      console.log(`Subject: ${subject}`);
-      console.log(`Type: ${type.toUpperCase()}`);
-      console.log(`Time: ${timestamp}`);
-      console.log(`Content:\n${text}`);
-      console.log(`======================================================\n`);
-
-      return NextResponse.json({
-        success: true,
-        delivered: false,
-        simulated: true,
-        message:
-          "Email simulated and logged to server console. To dispatch live emails to real inboxes, configure SMTP_USER and SMTP_PASS in .env.local (e.g. Gmail App Password).",
-        recipient,
+        duplicate: true,
+        recipient: to.join(", "),
         type,
         subject,
       });
     }
-  } catch (err: any) {
-    console.error("[Email Notification API Error]:", err);
+
+    const resendKey = oneLine(process.env.RESEND_API_KEY);
+    const resendFrom = oneLine(process.env.RESEND_FROM) || "AgriSense Alerts <onboarding@resend.dev>";
+    if (resendKey) {
+      const resendResponse = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendKey}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          from: resendFrom,
+          to,
+          subject,
+          text,
+          html,
+        }),
+      });
+      const resendBody = await resendResponse.json().catch(() => ({}));
+      if (!resendResponse.ok) {
+        if (episode) releaseEpisode(String(type), episode);
+        const resendMessage = resendBody.message || resendBody.error || "Resend rejected the email.";
+        return NextResponse.json(
+          { success: false, delivered: false, error: resendMessage, recipient: to.join(", "), type, subject },
+          { status: resendResponse.status }
+        );
+      }
+      if (episode) finishEpisode(String(type), episode);
+      return NextResponse.json({
+        success: true,
+        delivered: true,
+        messageId: resendBody.id,
+        recipient: to.join(", "),
+        type,
+        subject,
+      });
+    }
+
+    const smtpFrom =
+      oneLine(process.env.SMTP_FROM) ||
+      `"AgriSense Alerts" <${oneLine(process.env.SMTP_USER) || "alerts@agrisense.com"}>`;
+    const brevoKey = oneLine(process.env.BREVO_API_KEY);
+    let brevoApiError = "";
+    if (brevoKey) {
+      const fromMatch = smtpFrom.match(/^(.*)<([^>]+)>$/);
+      const sender = fromMatch
+        ? { name: fromMatch[1].replace(/"/g, "").trim() || "AgriSense Alerts", email: fromMatch[2].trim() }
+        : { name: "AgriSense Alerts", email: smtpFrom };
+      const brevoResponse = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: { "api-key": brevoKey, "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({
+          sender,
+          to: to.map((email) => ({ email })),
+          subject,
+          textContent: text,
+          htmlContent: html,
+        }),
+      });
+      const brevoBody = await brevoResponse.json().catch(() => ({}));
+      if (brevoResponse.ok) {
+        if (episode) finishEpisode(String(type), episode);
+        return NextResponse.json({
+          success: true,
+          delivered: true,
+          messageId: brevoBody.messageId,
+          recipient: to.join(", "),
+          type,
+          subject,
+        });
+      }
+      brevoApiError = brevoBody.message || brevoBody.error || "Brevo rejected the email.";
+    }
+
+    // SMTP Transporter configuration
+    const smtpHost = oneLine(process.env.SMTP_HOST) || "smtp.gmail.com";
+    const smtpPort = Number(process.env.SMTP_PORT) || 587;
+    const smtpUser = oneLine(process.env.SMTP_USER);
+    // Gmail app passwords are displayed in groups of four; spaces must be removed.
+    const rawPass = process.env.SMTP_PASS?.trim() || "";
+    const smtpPass = smtpHost.includes("gmail") ? rawPass.replace(/\s+/g, "") : rawPass;
+
+    if (smtpUser && smtpPass) {
+      const mail = {
+        from: smtpFrom,
+        to,
+        subject,
+        text,
+        html,
+      };
+
+      const buildTransport = (family?: 4 | 6) =>
+        nodemailer.createTransport({
+          host: smtpHost,
+          port: smtpPort,
+          secure: smtpPort === 465,
+          requireTLS: smtpPort === 587,
+          auth: {
+            user: smtpUser,
+            pass: smtpPass,
+          },
+          connectionTimeout: 12_000,
+          greetingTimeout: 12_000,
+          socketTimeout: 20_000,
+          ...(family ? { family } : {}),
+        });
+
+      let info;
+      try {
+        info = await buildTransport().sendMail(mail);
+      } catch (firstError: any) {
+        const transient = ["ETIMEDOUT", "ESOCKET", "ECONNECTION", "EAI_AGAIN", "ENOTFOUND", "ECONNREFUSED"].includes(
+          firstError?.code
+        );
+        if (!transient) throw firstError;
+        info = await buildTransport(4).sendMail(mail);
+      }
+
+      if (episode) finishEpisode(String(type), episode);
+      return NextResponse.json({
+        success: true,
+        delivered: true,
+        messageId: info.messageId,
+        recipient: to.join(", "),
+        type,
+        subject,
+      });
+    }
+
+    if (episode) releaseEpisode(String(type), episode);
+
+    console.log(`\n======================================================`);
+    console.log(`[AgriSense Email Dispatcher - Not Delivered]`);
+    console.log(`To: ${to.join(", ")}`);
+    console.log(`Subject: ${subject}`);
+    console.log(`Type: ${String(type).toUpperCase()}`);
+    console.log(`Time: ${timestamp}`);
+    console.log(`Reason: SMTP_USER and SMTP_PASS are not set.`);
+    console.log(`======================================================\n`);
+
     return NextResponse.json(
-      { error: err.message || "Failed to dispatch email notification." },
+      {
+        success: false,
+        delivered: false,
+        simulated: true,
+        error:
+          "Email was not delivered. Add SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS to the server environment (Gmail: smtp.gmail.com, port 587, and an app password).",
+        recipient: to.join(", "),
+        type,
+        subject,
+      },
+      { status: 503 }
+    );
+  } catch (err: any) {
+    if (episode) releaseEpisode(noticeType, episode);
+    console.error("[Email Notification API Error]:", err);
+    const smtpResponse = typeof err?.response === "string" ? err.response : "";
+    const message = smtpResponse || err?.message || "Failed to dispatch email notification.";
+    return NextResponse.json(
+      { success: false, delivered: false, error: message },
       { status: 500 }
     );
   }
+}
+
+export async function POST(req: NextRequest) {
+  return sendNotificationEmail(await req.json());
 }
 

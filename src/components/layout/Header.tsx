@@ -18,7 +18,7 @@ export function Header() {
   const titles: Record<string, { title: string; subtitle: string }> = {
     dashboard: { title: "Dashboard", subtitle: "Real-time overview of your aloe vera crop" },
     predictions: { title: "Crop Predictor & Weather Outlook", subtitle: "7-day microclimate weather correlation and physical outcome simulator" },
-    sensors: { title: "Sensors", subtitle: "Detailed sensor node metrics" },
+    sensors: { title: "Sensors", subtitle: "Live connection to the ESP32 on your local network" },
     alerts: { title: "Alerts", subtitle: "Active warnings and critical conditions" },
     analytics: { title: "Analytics", subtitle: "Insights and trends across your crop's vital signs" },
     database: { title: "Database", subtitle: "System logs and database records" },

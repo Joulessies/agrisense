@@ -23,9 +23,13 @@ interface ActiveHazardState {
   readingValue: string;
   thresholdLimit: string;
   triggeredAt: number;
+  pendingRetry?: boolean;
+  emailAttemptAt?: number;
 }
 
-const STORAGE_KEY = "agrisense_active_hazards_state";
+const EMAIL_RETRY_MS = 5 * 60 * 1000;
+
+const STORAGE_KEY = "agrisense_active_hazards_v2";
 const HISTORY_KEY = "agrisense_alert_history_local";
 
 class AlertNotificationManager {
@@ -130,7 +134,7 @@ class AlertNotificationManager {
     threshold: string;
     nodeId?: string;
     zone?: string;
-  }): Promise<{ success: boolean; simulated?: boolean; message?: string }> {
+  }): Promise<{ success: boolean; delivered: boolean; simulated?: boolean; message?: string }> {
     try {
       const res = await fetch("/api/notifications/email", {
         method: "POST",
@@ -140,13 +144,23 @@ class AlertNotificationManager {
           timestamp: new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" }),
           portalUrl: typeof window !== "undefined" ? window.location.origin : undefined,
         }),
+        signal: AbortSignal.timeout(20000),
       });
 
-      const json = await res.json();
-      return json;
+      const json = await res.json().catch(() => ({}));
+      const delivered = res.ok && json.delivered === true;
+      if (!delivered) {
+        return {
+          success: false,
+          delivered: false,
+          simulated: Boolean(json.simulated),
+          message: json.error || json.message || "Email was not delivered.",
+        };
+      }
+      return { success: true, delivered: true, message: json.message };
     } catch (err: any) {
       console.error("[AlertNotificationManager] Dispatch failed:", err);
-      return { success: false, message: err.message };
+      return { success: false, delivered: false, message: err.message || "Email was not delivered." };
     }
   }
 
@@ -236,14 +250,42 @@ class AlertNotificationManager {
         const formattedVal = `${chk.val}${chk.unit}`;
 
         if (isCurrentlyHazard) {
+          if (
+            existing?.pendingRetry &&
+            existing.emailAttemptAt &&
+            Date.now() - existing.emailAttemptAt < EMAIL_RETRY_MS
+          ) {
+            continue;
+          }
+
           // --- TRANSITION: NORMAL -> HAZARD ---
           if (!existing || !existing.active) {
-            const alertId = `hazard-${chk.key}-${Date.now()}`;
+            const retryFrom = existing?.pendingRetry ? existing : null;
+            const alertId = retryFrom ? retryFrom.alertId : `hazard-${chk.key}-${Date.now()}`;
             const hazardType = chk.hazardName(chk.val);
-            const triggeredAt = Date.now();
+            const triggeredAt = retryFrom ? retryFrom.triggeredAt : Date.now();
+            const shouldEmail = Boolean(emailAlertsEnabled && moderatorEmail);
 
+            let delivered = false;
+            let simulated = false;
+            if (shouldEmail) {
+              const result = await this.dispatchEmail({
+                type: "hazard",
+                recipient: moderatorEmail,
+                hazardType,
+                currentReading: formattedVal,
+                threshold: chk.thresholdDesc,
+                zone: "Aloe Vera Zone #1",
+              });
+              delivered = result.delivered;
+              simulated = Boolean(result.simulated);
+            }
+
+            const emailFailed = shouldEmail && !delivered && !simulated;
             this.activeHazards[chk.key] = {
-              active: true,
+              active: !emailFailed,
+              pendingRetry: emailFailed,
+              emailAttemptAt: shouldEmail ? Date.now() : undefined,
               alertId,
               hazardType,
               readingValue: formattedVal,
@@ -252,7 +294,6 @@ class AlertNotificationManager {
             };
             this.saveState();
 
-            // Log active hazard
             await this.logAlert({
               id: alertId,
               hazard_type: hazardType,
@@ -261,21 +302,9 @@ class AlertNotificationManager {
               threshold_limit: chk.thresholdDesc,
               status: "active",
               triggered_at: new Date(triggeredAt).toISOString(),
-              email_sent: Boolean(emailAlertsEnabled && moderatorEmail),
+              email_sent: delivered,
               recipient: moderatorEmail || "N/A",
             });
-
-            // Dispatch Hazard Email if enabled
-            if (emailAlertsEnabled && moderatorEmail) {
-              await this.dispatchEmail({
-                type: "hazard",
-                recipient: moderatorEmail,
-                hazardType,
-                currentReading: formattedVal,
-                threshold: chk.thresholdDesc,
-                zone: "Aloe Vera Zone #1",
-              });
-            }
           }
           // If already active, DO NOTHING! (Anti-spam suppression)
         } else {
@@ -292,7 +321,19 @@ class AlertNotificationManager {
             };
             this.saveState();
 
-            // Update log to resolved
+            let recoveryDelivered = false;
+            if (emailRecoveryEnabled && moderatorEmail) {
+              const result = await this.dispatchEmail({
+                type: "recovery",
+                recipient: moderatorEmail,
+                hazardType,
+                currentReading: formattedVal,
+                threshold: chk.safeRangeDesc,
+                zone: "Aloe Vera Zone #1",
+              });
+              recoveryDelivered = result.delivered;
+            }
+
             await this.logAlert({
               id: alertId,
               hazard_type: hazardType,
@@ -303,21 +344,9 @@ class AlertNotificationManager {
               triggered_at: new Date(existing.triggeredAt).toISOString(),
               resolved_at: new Date().toISOString(),
               duration_seconds: durationSec,
-              email_sent: Boolean(emailRecoveryEnabled && moderatorEmail),
+              email_sent: recoveryDelivered,
               recipient: moderatorEmail || "N/A",
             });
-
-            // Dispatch Recovery Email if enabled
-            if (emailRecoveryEnabled && moderatorEmail) {
-              await this.dispatchEmail({
-                type: "recovery",
-                recipient: moderatorEmail,
-                hazardType,
-                currentReading: formattedVal,
-                threshold: chk.safeRangeDesc,
-                zone: "Aloe Vera Zone #1",
-              });
-            }
           }
         }
       }
@@ -335,13 +364,41 @@ class AlertNotificationManager {
     const existing = this.activeHazards["hardware"];
 
     if (isDisconnected) {
-      if (!existing || !existing.active) {
-        const alertId = `fault-hw-${Date.now()}`;
-        const triggeredAt = Date.now();
-        const timeStr = lastSeenTime ? new Date(lastSeenTime).toLocaleString() : "Recently";
+      if (
+        existing?.pendingRetry &&
+        existing.emailAttemptAt &&
+        Date.now() - existing.emailAttemptAt < EMAIL_RETRY_MS
+      ) {
+        return;
+      }
 
+      if (!existing || !existing.active) {
+        const retryFrom = existing?.pendingRetry ? existing : null;
+        const alertId = retryFrom ? retryFrom.alertId : `fault-hw-${Date.now()}`;
+        const triggeredAt = retryFrom ? retryFrom.triggeredAt : Date.now();
+        const shouldEmail = Boolean(emailAlertsEnabled && emailDisconnectEnabled && moderatorEmail);
+
+        let delivered = false;
+        let simulated = false;
+        if (shouldEmail) {
+          const result = await this.dispatchEmail({
+            type: "disconnect",
+            recipient: moderatorEmail,
+            hazardType: "Node Communication Timeout",
+            currentReading: "Offline",
+            threshold: "Max 3 minutes latency",
+            nodeId: "agrisense-001 (ESP32)",
+            zone: "Aloe Vera Zone #1",
+          });
+          delivered = result.delivered;
+          simulated = Boolean(result.simulated);
+        }
+
+        const emailFailed = shouldEmail && !delivered && !simulated;
         this.activeHazards["hardware"] = {
-          active: true,
+          active: !emailFailed,
+          pendingRetry: emailFailed,
+          emailAttemptAt: shouldEmail ? Date.now() : undefined,
           alertId,
           hazardType: "Hardware Communication Timeout",
           readingValue: "Offline",
@@ -358,21 +415,9 @@ class AlertNotificationManager {
           threshold_limit: "Packet Watchdog Timeout (> 3m)",
           status: "active",
           triggered_at: new Date(triggeredAt).toISOString(),
-          email_sent: Boolean(emailAlertsEnabled && emailDisconnectEnabled && moderatorEmail),
+          email_sent: delivered,
           recipient: moderatorEmail || "N/A",
         });
-
-        if (emailAlertsEnabled && emailDisconnectEnabled && moderatorEmail) {
-          await this.dispatchEmail({
-            type: "disconnect",
-            recipient: moderatorEmail,
-            hazardType: "Node Communication Timeout",
-            currentReading: "Offline",
-            threshold: "Max 3 minutes latency",
-            nodeId: "agrisense-001 (ESP32)",
-            zone: "Aloe Vera Zone #1",
-          });
-        }
       }
     } else {
       // Reconnected
@@ -386,6 +431,19 @@ class AlertNotificationManager {
         };
         this.saveState();
 
+        let reconnectDelivered = false;
+        if (emailAlertsEnabled && moderatorEmail) {
+          const result = await this.dispatchEmail({
+            type: "recovery",
+            recipient: moderatorEmail,
+            hazardType: "Hardware Node Reconnected & Telemetry Restored",
+            currentReading: "Online (Signal Active)",
+            threshold: "Healthy Packet Stream",
+            zone: "Aloe Vera Zone #1",
+          });
+          reconnectDelivered = result.delivered;
+        }
+
         await this.logAlert({
           id: alertId,
           hazard_type: "Hardware Sensor Node Disconnected",
@@ -396,20 +454,9 @@ class AlertNotificationManager {
           triggered_at: new Date(existing.triggeredAt).toISOString(),
           resolved_at: new Date().toISOString(),
           duration_seconds: durationSec,
-          email_sent: Boolean(emailAlertsEnabled && moderatorEmail),
+          email_sent: reconnectDelivered,
           recipient: moderatorEmail || "N/A",
         });
-
-        if (emailAlertsEnabled && moderatorEmail) {
-          await this.dispatchEmail({
-            type: "recovery",
-            recipient: moderatorEmail,
-            hazardType: "Hardware Node Reconnected & Telemetry Restored",
-            currentReading: "Online (Signal Active)",
-            threshold: "Healthy Packet Stream",
-            zone: "Aloe Vera Zone #1",
-          });
-        }
       }
     }
   }

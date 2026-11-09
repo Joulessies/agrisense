@@ -105,8 +105,12 @@ export function useRealtimeSync() {
           updateSensor('temperature', row.temperature ?? null);
           updateSensor('humidity', row.humidity ?? null);
           updateSensor('light', row.lux ?? null);
-          checkCriticalAlerts(row.soil_moisture, row.temperature);
-          alertNotificationManager.evaluateTelemetry({ soilMoisture: row.soil_moisture, temperature: row.temperature, humidity: row.humidity, lux: row.lux });
+      checkCriticalAlerts(row.soil_moisture, row.temperature);
+      alertNotificationManager.evaluateTelemetry({ soilMoisture: row.soil_moisture, temperature: row.temperature, humidity: row.humidity, lux: row.lux });
+      alertNotificationManager.evaluateHardwareConnectivity(
+        Date.now() - new Date(row.recorded_at).getTime() > 180000,
+        row.recorded_at
+      );
 
           const isHardware = Boolean(
             row.device_id &&
@@ -137,6 +141,16 @@ export function useRealtimeSync() {
       updateSensor('humidity', row.humidity ?? null);
       updateSensor('light', row.lux ?? null);
       checkCriticalAlerts(row.soil_moisture, row.temperature);
+      alertNotificationManager.evaluateTelemetry({
+        soilMoisture: row.soil_moisture,
+        temperature: row.temperature,
+        humidity: row.humidity,
+        lux: row.lux,
+      });
+      alertNotificationManager.evaluateHardwareConnectivity(
+        Date.now() - new Date(row.recorded_at).getTime() > 180000,
+        row.recorded_at
+      );
 
       useStore.getState().incrementPacketCount?.();
 

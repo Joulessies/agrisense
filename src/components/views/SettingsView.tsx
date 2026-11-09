@@ -52,7 +52,7 @@ export function SettingsView() {
   const [savingCritical, setSavingCritical] = useState(false);
 
   // Email Notification & Alert History State
-  const [emailInput, setEmailInput] = useState(moderatorEmail || "moderator@agrisense.com");
+  const [emailInput, setEmailInput] = useState(moderatorEmail || "");
   const [sendingTestEmail, setSendingTestEmail] = useState(false);
   const [alertHistory, setAlertHistory] = useState<AlertHistoryRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -73,7 +73,7 @@ export function SettingsView() {
   }, [criticalAlertSettings]);
 
   useEffect(() => {
-    setEmailInput(moderatorEmail || "moderator@agrisense.com");
+    setEmailInput(moderatorEmail || "");
   }, [moderatorEmail]);
 
   const loadHistory = async () => {
@@ -210,13 +210,11 @@ export function SettingsView() {
         zone: "Aloe Vera Zone #1",
       });
 
-      if (res.success) {
-        if (res.simulated) {
-          showToast(`Test email simulated! (Logged in server console)`, "info");
-        } else {
-          showToast(`Test alert email sent to ${emailInput}!`, "ok");
-        }
+      if (res.delivered) {
+        showToast(`Test alert email sent to ${emailInput}!`, "ok");
         addActivity(`Dispatched test hazard email to ${emailInput}`, "ok");
+      } else if (res.simulated) {
+        showToast(res.message || "Test email was not delivered. SMTP is not configured.", "warning");
       } else {
         showToast(res.message || "Failed to dispatch test email", "error");
       }
@@ -453,7 +451,7 @@ export function SettingsView() {
           <form onSubmit={handleSaveEmail} className="flex flex-col sm:flex-row items-end gap-3 max-w-2xl">
             <div className="flex-1 w-full">
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Moderator Alert Email Recipient
+                Your alert email
               </label>
               <div className="relative">
                 <i className="fa-solid fa-envelope absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
@@ -461,10 +459,13 @@ export function SettingsView() {
                   type="email"
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
-                  placeholder="moderator@agrisense.com"
+                  placeholder="agrisense.alerts@gmail.com"
                   className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
                 />
               </div>
+              <p className="text-[11px] text-slate-500 mt-1.5">
+                Hazard and recovery alerts are sent only to this address.
+              </p>
             </div>
 
             <div className="flex items-center gap-2 w-full sm:w-auto">

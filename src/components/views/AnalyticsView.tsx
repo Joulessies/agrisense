@@ -49,7 +49,7 @@ const INSIGHT_COLORS: Record<string, { bg: string; icon: string; title: string; 
 };
 
 export function AnalyticsView() {
-  const { analyticsRange, sensors, farmSettings, nodes } = useStore();
+  const { analyticsRange, sensors } = useStore();
   const { insights, isLoading: insightsLoading, error, refresh } = useGeminiInsights();
 
   const [showReportModal, setShowReportModal] = useState(false);
@@ -61,12 +61,6 @@ export function AnalyticsView() {
   const [isFetching, setIsFetching] = useState(true);
 
   const rangeDays = analyticsRange === "season" ? 90 : analyticsRange === "30d" ? 30 : 7;
-  const potVolumeLiters = farmSettings?.potSize === "small" ? 0.6 : farmSettings?.potSize === "large_ground" ? 3.5 : 1.2;
-  const estimatedWaterCycles = Math.max(1, Math.round(rangeDays / 8));
-  const estimatedWaterLiters = (estimatedWaterCycles * potVolumeLiters).toFixed(1);
-
-  const activeNodesCount = nodes.filter((n) => n.online).length || 1;
-  const estimatedEnergyKwh = (activeNodesCount * 0.024 * rangeDays).toFixed(2);
 
   useEffect(() => {
     async function fetchData() {
@@ -304,7 +298,7 @@ export function AnalyticsView() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <StatCard
           title="Crop Health Index"
           value={overallHealth}
@@ -315,28 +309,6 @@ export function AnalyticsView() {
           trendIcon={overallHealth > 80 ? "fa-arrow-trend-up" : "fa-arrow-trend-down"}
           trendText={overallHealth > 80 ? "Optimal" : "Needs attention"}
           trendColor={overallHealth > 80 ? "text-agri-600" : "text-amber-500"}
-        />
-        <StatCard
-          title="Water Usage (Est.)"
-          value={estimatedWaterLiters}
-          unit="L"
-          icon="fa-droplet"
-          iconColor="text-sky-500"
-          iconBg="bg-sky-50"
-          trendIcon="fa-chart-pie"
-          trendText={`Est. based on ${rangeDays}d schedule`}
-          trendColor="text-sky-600"
-        />
-        <StatCard
-          title="Energy Consumption"
-          value={estimatedEnergyKwh}
-          unit="kWh"
-          icon="fa-bolt"
-          iconColor="text-amber-500"
-          iconBg="bg-amber-50"
-          trendIcon="fa-microchip"
-          trendText={`Est. across ${activeNodesCount} active node${activeNodesCount > 1 ? "s" : ""}`}
-          trendColor="text-amber-600"
         />
         <StatCard
           title="Anomalies Detected"
